@@ -156,6 +156,7 @@
     <ClInclude Include="SDK\nt-headers\headers\headers.hpp" />
     <ClInclude Include="SDK\nt-headers\sections\sections.hpp" />
     <ClInclude Include="SDK\PE.hpp" />
+    <ClInclude Include="SDK\defs.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

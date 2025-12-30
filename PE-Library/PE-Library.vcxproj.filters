@@ -14,5 +14,6 @@
     <ClInclude Include="SDK\nt-headers\sections\sections.hpp" />
     <ClInclude Include="SDK\nt-headers\headers\headers.hpp" />
     <ClInclude Include="SDK\nt-headers\directories\dir.hpp" />
+    <ClInclude Include="SDK\defs.hpp" />
   </ItemGroup>
 </Project>

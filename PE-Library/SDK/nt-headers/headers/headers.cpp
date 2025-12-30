@@ -2,7 +2,7 @@
 
 /* headers.cpp - of "Premier" PE Library
 
-* Copyright (C) 2020-2025 Premier. All rights reserved.
+* Copyright (C) 2026 Premier. All rights reserved.
 
 * This software is licensed under the MIT License.
 * For more details see http://www.opensource.org/licenses/MIT
