@@ -13,16 +13,6 @@ PE Library/
 ├── SDK/
 │   ├── PE.hpp              # Main library header
 │   ├── PE.cpp              # Main library implementation
-│   ├── dos-header/         # DOS header functionality
-│   │   ├── dos-header.hpp
-│   │   └── dos-header.cpp
-│   └── nt-headers/         # NT headers functionality
-│       ├── directories/    # Data directory structures
-│       │   └── dir.hpp/cpp
-│       ├── headers/        # File and optional headers
-│       │   └── headers.hpp/cpp
-│       └── sections/       # Section management
-│           └── sections.hpp/cpp
 └── example.cpp             # Usage examples
 ```
 
