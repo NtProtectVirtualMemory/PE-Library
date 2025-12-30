@@ -25,7 +25,7 @@ namespace PE
         [[nodiscard]]bool IsPEFile() noexcept;
 
 		/* 
-        These will be implemented later, currently dont work because m_magic isnt being set
+        These will be implemented later, they currently don't work because m_magic isn't being set
         
 		[[nodiscard]]bool IsPE32() const noexcept { return m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
 		[[nodiscard]]bool IsPE64() const noexcept { return m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }

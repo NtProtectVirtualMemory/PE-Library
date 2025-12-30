@@ -47,7 +47,7 @@ PE::Image::~Image()
 
 // @brief Checks if the loaded file is a valid PE file
 // @param none
-// @return true if the file is a valid PE file, false otherwis
+// @return true if the file is a valid PE file, false otherwise
 bool PE::Image::IsPEFile() noexcept
 {
 	if (m_data.size() < sizeof(IMAGE_DOS_HEADER))
