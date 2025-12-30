@@ -178,11 +178,12 @@ namespace PE
 		[[nodiscard]] PIMAGE_NT_HEADERS32 Get32() noexcept;
 		[[nodiscard]] PIMAGE_NT_HEADERS64 Get64() noexcept;
 
+		/*
+		* @brief Retrieves the NT headers based on the specified type
+		* @param none
+		* @return A pointer to the NT headers of type T
+		*/
 		template<typename T>
-		/**
-		 * @brief Retrieves the NT headers based on the specified type
-		 * @return A pointer to the NT headers of type T
-		 */
 		[[nodiscard]] T* Get() noexcept
 		{
 			static_assert(std::is_same_v<T, IMAGE_NT_HEADERS32> ||
@@ -206,12 +207,12 @@ namespace PE
 		[[nodiscard]] PIMAGE_OPTIONAL_HEADER32 Get32() noexcept;
 		[[nodiscard]] PIMAGE_OPTIONAL_HEADER64 Get64() noexcept;
 
-
+		/*
+		* @brief Retrieves the Optional headers based on the specified type
+		* @param none
+		* @return A pointer to the Optional headers of type T
+		*/
 		template<typename T>
-		/**
-		 * @brief Retrieves the optional header based on the specified type
-		 * @return A pointer to the optional header of type T
-		 */
 		[[nodiscard]] T* Get() noexcept
 		{
 			static_assert(std::is_same_v<T, IMAGE_OPTIONAL_HEADER32> ||
@@ -235,14 +236,14 @@ namespace PE
 		~Image() = default;
 
 		// Validation
-		[[nodiscard]] bool IsValid() const noexcept { return m_valid; }
-		[[nodiscard]] bool IsPE32() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
-		[[nodiscard]] bool IsPE64() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
+		[[nodiscard]] __forceinline bool IsValid() const noexcept { return m_valid; }
+		[[nodiscard]] __forceinline bool IsPE32() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
+		[[nodiscard]] __forceinline bool IsPE64() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
 
 		// Accessors
-		DosHeader DOS() noexcept { return DosHeader(this); }
-		NtHeaders NT() noexcept { return NtHeaders(this); }
-		OptionalHeader OPTIONAL() noexcept { return OptionalHeader(this); }
+		DosHeader _DOS() noexcept { return DosHeader(this); }
+		NtHeaders _NT() noexcept { return NtHeaders(this); }
+		OptionalHeader _OPTIONAL() noexcept { return OptionalHeader(this); }
 
 		// PE Image data
 		std::vector<BYTE>& Data() noexcept { return m_data; }

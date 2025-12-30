@@ -11,6 +11,12 @@
 
 */
 
+
+/*
+* @brief Constructs a PE::Image object from a file
+* @param Path to the file
+* @return none
+*/
 PE::Image::Image(const char* path)
 {
 	FILE* file = nullptr;
