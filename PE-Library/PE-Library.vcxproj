@@ -73,18 +73,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</IncludePath>
     <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</ExternalIncludePath>
+    <OutDir>$(SolutionDir)bin\$(TargetName)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)bin\intermediates\$(TargetName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</IncludePath>
     <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</ExternalIncludePath>
+    <OutDir>$(SolutionDir)bin\$(TargetName)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)bin\intermediates\$(TargetName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</IncludePath>
     <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</ExternalIncludePath>
+    <OutDir>$(SolutionDir)bin\$(TargetName)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)bin\intermediates\$(TargetName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</IncludePath>
     <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)PE-Library\SDK;</ExternalIncludePath>
+    <OutDir>$(SolutionDir)bin\$(TargetName)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)bin\intermediates\$(TargetName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -144,19 +152,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="example.cpp" />
-    <ClCompile Include="SDK\dos-header\dos-header.cpp" />
-    <ClCompile Include="SDK\nt-headers\directories\dir.cpp" />
-    <ClCompile Include="SDK\nt-headers\headers\headers.cpp" />
-    <ClCompile Include="SDK\nt-headers\sections\sections.cpp" />
     <ClCompile Include="SDK\PE.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SDK\dos-header\dos-header.hpp" />
-    <ClInclude Include="SDK\nt-headers\directories\dir.hpp" />
-    <ClInclude Include="SDK\nt-headers\headers\headers.hpp" />
-    <ClInclude Include="SDK\nt-headers\sections\sections.hpp" />
     <ClInclude Include="SDK\PE.hpp" />
-    <ClInclude Include="SDK\defs.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
