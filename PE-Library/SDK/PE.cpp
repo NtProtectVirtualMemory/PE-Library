@@ -35,7 +35,7 @@ PE::Image::Image(const char* path)
 
 	if (Validate())
 	{
-		auto nt_headers = NT().Get32();
+		auto nt_headers = _NT().Get32();
 		if (nt_headers)
 			m_magic = nt_headers->OptionalHeader.Magic;
 	}
@@ -46,7 +46,7 @@ bool PE::Image::Validate() noexcept
 	if (m_data.size() < sizeof(IMAGE_DOS_HEADER))
 		return false;
 
-	auto dos_header = DOS().Get();
+	auto dos_header = _DOS().Get();
 	if (!dos_header || dos_header->e_magic != IMAGE_DOS_SIGNATURE)
 		return false;
 
@@ -70,7 +70,7 @@ PIMAGE_NT_HEADERS32 PE::NtHeaders::Get32() noexcept
 	if (!m_image)
 		return nullptr;
 
-	auto dos_header = m_image->DOS().Get();
+	auto dos_header = m_image->_DOS().Get();
 	if (!dos_header || m_image->Data().empty())
 		return nullptr;
 
@@ -82,7 +82,7 @@ PIMAGE_NT_HEADERS64 PE::NtHeaders::Get64() noexcept
 	if (!m_image)
 		return nullptr;
 
-	auto dos_header = m_image->DOS().Get();
+	auto dos_header = m_image->_DOS().Get();
 	if (!dos_header || m_image->Data().empty())
 		return nullptr;
 
@@ -94,7 +94,7 @@ PIMAGE_OPTIONAL_HEADER32 PE::OptionalHeader::Get32() noexcept
 	if (!m_image)
 		return nullptr;
 
-	auto nt_headers = m_image->NT().Get32();
+	auto nt_headers = m_image->_NT().Get32();
 	return nt_headers ? &nt_headers->OptionalHeader : nullptr;
 }
 
@@ -103,6 +103,6 @@ PIMAGE_OPTIONAL_HEADER64 PE::OptionalHeader::Get64() noexcept
 	if (!m_image)
 		return nullptr;
 
-	auto nt_headers = m_image->NT().Get64();
+	auto nt_headers = m_image->_NT().Get64();
 	return nt_headers ? &nt_headers->OptionalHeader : nullptr;
 }
