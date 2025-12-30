@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="PE-Library/PE-Library.vcxproj" />
+  <Project Path="PE-Library/PE-Library.vcxproj" Id="9ec0aefc-84e2-4001-8a51-07e418289173" />
 </Solution>
