@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Text Include="LICENSE.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="SDK\PE.cpp" />
     <ClCompile Include="SDK\dos-header\dos-header.cpp" />
     <ClCompile Include="SDK\nt-headers\sections\sections.cpp" />
@@ -17,8 +14,5 @@
     <ClInclude Include="SDK\nt-headers\sections\sections.hpp" />
     <ClInclude Include="SDK\nt-headers\headers\headers.hpp" />
     <ClInclude Include="SDK\nt-headers\directories\dir.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="README.md" />
   </ItemGroup>
 </Project>

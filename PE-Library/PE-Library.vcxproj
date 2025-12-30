@@ -143,9 +143,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="LICENSE.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="example.cpp" />
     <ClCompile Include="SDK\dos-header\dos-header.cpp" />
     <ClCompile Include="SDK\nt-headers\directories\dir.cpp" />
@@ -159,9 +156,6 @@
     <ClInclude Include="SDK\nt-headers\headers\headers.hpp" />
     <ClInclude Include="SDK\nt-headers\sections\sections.hpp" />
     <ClInclude Include="SDK\PE.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
