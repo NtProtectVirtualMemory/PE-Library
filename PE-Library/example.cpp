@@ -35,8 +35,8 @@ int main(int argc, char* argv[]) {
 			printf("The file is PE32 (32-bit)\n");
 
 			// Get headers
-			auto nt_headers = image.NT().Get<IMAGE_NT_HEADERS32>();
-			auto optional_headers = image.OPTIONAL().Get<IMAGE_OPTIONAL_HEADER32>();
+			auto nt_headers = image._NT().Get<IMAGE_NT_HEADERS32>();
+			auto optional_headers = image._OPTIONAL().Get<IMAGE_OPTIONAL_HEADER32>();
 
 			// Display some stuff from both headers
 			printf("NT Headers Signature: 0x%X\n", nt_headers->Signature);
@@ -48,8 +48,8 @@ int main(int argc, char* argv[]) {
 			printf("The file is PE32+ (64-bit)\n");
 
 			// Get headers
-			auto nt_headers = image.NT().Get<IMAGE_NT_HEADERS64>();
-			auto optional_headers = image.OPTIONAL().Get<IMAGE_OPTIONAL_HEADER64>();
+			auto nt_headers = image._NT().Get<IMAGE_NT_HEADERS64>();
+			auto optional_headers = image._OPTIONAL().Get<IMAGE_OPTIONAL_HEADER64>();
 
 			// Display some stuff from both headers
 			printf("NT Headers Signature: 0x%X\n", nt_headers->Signature);
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Get the DOS header
-	auto dos_header = image.DOS().Get();
+	auto dos_header = image._DOS().Get();
 	if (dos_header)
 	{
 		printf("DOS Header e_magic: 0x%X\n", dos_header->e_magic);
