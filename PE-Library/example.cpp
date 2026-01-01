@@ -65,6 +65,7 @@ int main(int argc, char* argv[]) {
 	else
 	{
 		printf("Mane wtf it failed to load or validate the PE file: %s\n", file_path);
+		wait(std::chrono::seconds(3));
 		return EXIT_FAILURE;
 	}
 
@@ -78,6 +79,7 @@ int main(int argc, char* argv[]) {
 	else
 	{
 		printf("Couldn't retrieve DOS header.\n");
+		wait(std::chrono::seconds(3));
 		return EXIT_FAILURE;
 	}
 
@@ -93,6 +95,7 @@ int main(int argc, char* argv[]) {
 	else
 	{
 		printf("Couldn't find .data section.\n");
+		wait(std::chrono::seconds(3));
 		return EXIT_FAILURE;
 	}
 
