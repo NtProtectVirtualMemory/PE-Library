@@ -21,14 +21,6 @@ typedef unsigned short      WORD;
 typedef long				LONG;
 typedef unsigned __int64	ULONGLONG;
 
-// Constants
-
-constexpr WORD	IMAGE_SIZEOF_SHORT_NAME = 8;
-constexpr WORD	IMAGE_DOS_SIGNATURE = 0x5A4D; // MZ
-constexpr WORD	IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10b; // PE32
-constexpr WORD	IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20b; // PE32+ (64-bit)
-constexpr WORD	IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16;
-
 #if ( defined(__midl) && (501 < __midl) )
 
 typedef [public] __int3264 INT_PTR, * PINT_PTR;
@@ -60,6 +52,14 @@ typedef _W64 unsigned long ULONG_PTR, * PULONG_PTR;
 
 #endif
 #endif // midl64
+
+// Constants
+
+constexpr WORD	IMAGE_SIZEOF_SHORT_NAME = 8;
+constexpr WORD	IMAGE_DOS_SIGNATURE = 0x5A4D; // MZ
+constexpr WORD	IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10b; // PE32
+constexpr WORD	IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20b; // PE32+ (64-bit)
+constexpr WORD	IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16;
 
 // Structs
 
