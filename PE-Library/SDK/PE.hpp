@@ -12,7 +12,8 @@
 */
 
 #include <vector>
-#include <thread>
+
+// Typedefs
 
 typedef unsigned long       DWORD;
 typedef unsigned char       BYTE;
@@ -20,10 +21,47 @@ typedef unsigned short      WORD;
 typedef long				LONG;
 typedef unsigned __int64	ULONGLONG;
 
+// Constants
+
+constexpr WORD	IMAGE_SIZEOF_SHORT_NAME = 8;
 constexpr WORD	IMAGE_DOS_SIGNATURE = 0x5A4D; // MZ
 constexpr WORD	IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10b; // PE32
 constexpr WORD	IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20b; // PE32+ (64-bit)
 constexpr WORD	IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16;
+
+#if ( defined(__midl) && (501 < __midl) )
+
+typedef [public] __int3264 INT_PTR, * PINT_PTR;
+typedef [public] unsigned __int3264 UINT_PTR, * PUINT_PTR;
+
+typedef [public] __int3264 LONG_PTR, * PLONG_PTR;
+typedef [public] unsigned __int3264 ULONG_PTR, * PULONG_PTR;
+
+#else  // midl64
+// old midl and C++ compiler
+
+#if defined(_WIN64)
+typedef __int64 INT_PTR, * PINT_PTR;
+typedef unsigned __int64 UINT_PTR, * PUINT_PTR;
+
+typedef __int64 LONG_PTR, * PLONG_PTR;
+typedef unsigned __int64 ULONG_PTR, * PULONG_PTR;
+
+#define __int3264   __int64
+
+#else
+typedef _W64 int INT_PTR, * PINT_PTR;
+typedef _W64 unsigned int UINT_PTR, * PUINT_PTR;
+
+typedef _W64 long LONG_PTR, * PLONG_PTR;
+typedef _W64 unsigned long ULONG_PTR, * PULONG_PTR;
+
+#define __int3264   __int32
+
+#endif
+#endif // midl64
+
+// Structs
 
 typedef struct _IMAGE_DOS_HEADER {      // DOS .EXE header
 	WORD   e_magic;                     // Magic number
@@ -158,13 +196,62 @@ typedef IMAGE_NT_HEADERS32                  IMAGE_NT_HEADERS;
 typedef PIMAGE_NT_HEADERS32                 PIMAGE_NT_HEADERS;
 #endif
 
+typedef struct _IMAGE_SECTION_HEADER {
+	BYTE    Name[IMAGE_SIZEOF_SHORT_NAME];
+	union {
+		DWORD   PhysicalAddress;
+		DWORD   VirtualSize;
+	} Misc;
+	DWORD   VirtualAddress;
+	DWORD   SizeOfRawData;
+	DWORD   PointerToRawData;
+	DWORD   PointerToRelocations;
+	DWORD   PointerToLinenumbers;
+	WORD    NumberOfRelocations;
+	WORD    NumberOfLinenumbers;
+	DWORD   Characteristics;
+} IMAGE_SECTION_HEADER, * PIMAGE_SECTION_HEADER;
+
+// Defines
+
+#ifndef FIELD_OFFSET
+#define FIELD_OFFSET(type, field) ((LONG)(LONG_PTR)&(((type *)0)->field))
+#endif
+
+#define IMAGE_FIRST_SECTION( ntheader ) ((PIMAGE_SECTION_HEADER)        \
+    ((ULONG_PTR)(ntheader) +                                            \
+     FIELD_OFFSET( IMAGE_NT_HEADERS, OptionalHeader ) +                 \
+     ((ntheader))->FileHeader.SizeOfOptionalHeader   \
+    ))
+
 namespace PE
 {
 	class Image; // Forward declaration
+
+	class Section
+	{
+	public:
+		Section(Image* image) : m_image(image) {}
+		/*
+		* @brief Retrieves section header based on the specified name
+		* @param name The name of the section to retrieve
+		* @return A pointer to the section header, or nullptr if not found
+		*/
+		[[nodiscard]] PIMAGE_SECTION_HEADER Get(const char* name) noexcept;
+
+	private:
+		Image* m_image;
+	};
+
 	class DosHeader
 	{
 	public:
 		DosHeader(Image* image) : m_image(image) {}
+		/*
+		* @brief Retrieves the DOS header
+		* @param none
+		* @return A pointer to the DOS header, or nullptr if not found
+		*/
 		[[nodiscard]] PIMAGE_DOS_HEADER Get() noexcept;
 
 	private:
@@ -175,9 +262,18 @@ namespace PE
 	{
 	public:
 		NtHeaders(Image* image) : m_image(image) {}
+		/*
+		* @brief Retrieves the Optional 32-bit headers
+		* @param none
+		* @return Pointer to the Optional 32-bit headers, or nullptr if not found
+		*/
 		[[nodiscard]] PIMAGE_NT_HEADERS32 Get32() noexcept;
+		/*
+		* @brief Retrieves the Optional 64-bit headers
+		* @param none
+		* @return Pointer to the Optional 64-bit headers, or nullptr if not found
+		*/
 		[[nodiscard]] PIMAGE_NT_HEADERS64 Get64() noexcept;
-
 		/*
 		* @brief Retrieves the NT headers based on the specified type
 		* @param none
@@ -204,9 +300,18 @@ namespace PE
 	{
 	public:
 		OptionalHeader(Image* image) : m_image(image) {}
+		/*
+		* @brief Retrieves the Optional 32-bit headers
+		* @param none
+		* @return Pointer to the Optional 32-bit headers, or nullptr if not found
+		*/
 		[[nodiscard]] PIMAGE_OPTIONAL_HEADER32 Get32() noexcept;
+		/*
+		* @brief Retrieves the Optional 64-bit headers
+		* @param none
+		* @return Pointer to the Optional 64-bit headers, or nullptr if not found
+		*/
 		[[nodiscard]] PIMAGE_OPTIONAL_HEADER64 Get64() noexcept;
-
 		/*
 		* @brief Retrieves the Optional headers based on the specified type
 		* @param none
@@ -234,10 +339,23 @@ namespace PE
 	public:
 		Image(const char* path);
 		~Image() = default;
-
-		// Validation
+		/*
+		* @brief Checks if the PE image is valid
+		* @param none
+		* @return True if the PE image is valid, false otherwise
+		*/
 		[[nodiscard]] __forceinline bool IsValid() const noexcept { return m_valid; }
+		/*
+		* @brief Checks if the PE image is a 32-bit image
+		* @param none
+		* @return True if the PE image is 32-bit, false otherwise
+		*/
 		[[nodiscard]] __forceinline bool IsPE32() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
+		/*
+		* @brief Checks if the PE image is a 64-bit image
+		* @param none
+		* @return True if the PE image is 64-bit, false otherwise
+		*/
 		[[nodiscard]] __forceinline bool IsPE64() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
 
 		// Accessors
@@ -250,7 +368,7 @@ namespace PE
 
 	private:
 
-		// Cute members
+		// Members
 		std::vector<BYTE> m_data;
 		bool m_valid = false;
 		WORD m_magic = 0;
