@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Get a section by name (e.g., ".data")
-	PE::Section text_section(&image);
+	PE::Sections text_section(&image);
 	auto section_header = text_section.Get(".data");
 	if (section_header)
 	{
@@ -99,7 +99,18 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	printf("\n"); // :thinking:
+	// Or display all sections
+
+	printf("\n");
+	PE::Sections sections(&image);
+	auto section_names = sections.GetSections();
+
+	for (const auto& name : section_names)
+	{
+		printf("* Section: %.*s\n", IMAGE_SIZEOF_SHORT_NAME, name.data());
+	}
+	printf("\n");
+
 	system("pause");
 	return EXIT_SUCCESS;
 }
