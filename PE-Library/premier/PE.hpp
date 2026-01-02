@@ -437,7 +437,7 @@ namespace PE
 		* @brief Retrieves the names of all sections
 		* @return A vector containing the names of all sections
 		*/
-		inline std::vector<std::string_view> GetSections() const noexcept
+		[[nodiscard]] inline std::vector<std::string_view> GetSections() const noexcept
 		{
 			std::vector<std::string_view> section_names;
 			for (size_t i = 0; i < m_number_of_sections; ++i)
