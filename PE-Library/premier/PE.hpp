@@ -234,6 +234,10 @@ namespace PE
 	*/
 	class DosHeader
 	{
+	private:
+		// Members
+		Image* m_image;
+
 	public:
 		DosHeader(Image* image) : m_image(image) {}
 		/*
@@ -241,9 +245,6 @@ namespace PE
 		* @return A pointer to the DOS header, or nullptr if not found
 		*/
 		[[nodiscard]] PIMAGE_DOS_HEADER Get() const noexcept;
-
-	private:
-		Image* m_image;
 	};
 
 	/*
@@ -251,26 +252,21 @@ namespace PE
 	*/
 	class NtHeaders
 	{
+	private:
+		// Members
+		Image* m_image;
+
+		// Private methods
+		[[nodiscard]] PIMAGE_NT_HEADERS32 Get32() const noexcept;
+		[[nodiscard]] PIMAGE_NT_HEADERS64 Get64() const noexcept;
+
 	public:
 		NtHeaders(Image* image) : m_image(image) {}
-
-		/*
-		* @brief Retrieves the Optional 32-bit headers
-		* @return Pointer to the Optional 32-bit headers, or nullptr if not found
-		*/
-		[[nodiscard]] PIMAGE_NT_HEADERS32 Get32() const noexcept;
-
-		/*
-		* @brief Retrieves the Optional 64-bit headers
-		* @return Pointer to the Optional 64-bit headers, or nullptr if not found
-		*/
-		[[nodiscard]] PIMAGE_NT_HEADERS64 Get64() const noexcept;
 
 		/*
 		* @brief Retrieves the NT headers based on the specified type
 		* @return A pointer to the NT headers of type T
 		*/
-
 		template<typename T>
 		[[nodiscard]] T* Get() const noexcept
 		{
@@ -283,9 +279,6 @@ namespace PE
 			else
 				return Get64();
 		}
-
-	private:
-		Image* m_image;
 	};
 
 	/*
@@ -293,20 +286,17 @@ namespace PE
 	*/
 	class OptionalHeader
 	{
+	private:
+
+		// Members
+		Image* m_image;
+
+		// Private methods
+		[[nodiscard]] PIMAGE_OPTIONAL_HEADER32 Get32() const noexcept;
+		[[nodiscard]] PIMAGE_OPTIONAL_HEADER64 Get64() const noexcept;
+
 	public:
 		OptionalHeader(Image* image) : m_image(image) {}
-
-		/*
-		* @brief Retrieves the Optional 32-bit headers
-		* @return Pointer to the Optional 32-bit headers, or nullptr if not found
-		*/
-		[[nodiscard]] PIMAGE_OPTIONAL_HEADER32 Get32() const noexcept;
-
-		/*
-		* @brief Retrieves the Optional 64-bit headers
-		* @return Pointer to the Optional 64-bit headers, or nullptr if not found
-		*/
-		[[nodiscard]] PIMAGE_OPTIONAL_HEADER64 Get64() const noexcept;
 
 		/*
 		* @brief Retrieves the Optional headers based on the specified type
@@ -324,9 +314,6 @@ namespace PE
 			else
 				return Get64();
 		}
-
-	private:
-		Image* m_image;
 	};
 
 	/*
@@ -400,10 +387,16 @@ namespace PE
 	};
 
 	/*
-	* @brief Represents a section in the PE image
+	* @brief Represents the sections in the PE image
 	*/
 	class Sections
 	{
+	private:
+		// Members
+		Image* m_image;
+		WORD m_number_of_sections = 0;
+		PIMAGE_SECTION_HEADER m_sections = nullptr;
+
 	public:
 		Sections(Image* image) : m_image(image)
 		{
@@ -437,7 +430,7 @@ namespace PE
 		* @brief Retrieves the names of all sections
 		* @return A vector containing the names of all sections
 		*/
-		[[nodiscard]] inline std::vector<std::string_view> GetSections() const noexcept
+		[[nodiscard]] inline std::vector<std::string_view> List() const noexcept
 		{
 			std::vector<std::string_view> section_names;
 			for (size_t i = 0; i < m_number_of_sections; ++i)
@@ -465,12 +458,17 @@ namespace PE
 
 			return nullptr;
 		}
+	};
 
+	/*
+	* @brief Represents the directories in the PE image
+	*/
+	class Directories
+	{
 	private:
-		Image* m_image;
 
-		WORD m_number_of_sections = 0;
-		PIMAGE_SECTION_HEADER m_sections = nullptr;
+	public:
+
 	};
 
 	// DOS Header
@@ -527,7 +525,7 @@ namespace PE
 			return nullptr;
 		}
 
-		auto nt_headers = m_image->_NT().Get32();
+		auto nt_headers = m_image->_NT().Get<IMAGE_NT_HEADERS32>();
 		return nt_headers ? &nt_headers->OptionalHeader : nullptr;
 	}
 
@@ -538,7 +536,7 @@ namespace PE
 			return nullptr;
 		}
 
-		auto nt_headers = m_image->_NT().Get64();
+		auto nt_headers = m_image->_NT().Get<IMAGE_NT_HEADERS64>();
 		return nt_headers ? &nt_headers->OptionalHeader : nullptr;
 	}
 

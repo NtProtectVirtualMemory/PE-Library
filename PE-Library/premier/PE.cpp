@@ -30,7 +30,7 @@ PE::Image::Image(const char* path)
 
 	if (Validate())
 	{
-		auto nt_headers = _NT().Get32();
+		auto nt_headers = _NT().Get<IMAGE_NT_HEADERS32>();
 		if (nt_headers)
 		{
 			m_magic = nt_headers->OptionalHeader.Magic;

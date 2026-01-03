@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
 
 	printf("\n");
 	PE::Sections sections(&image);
-	auto section_names = sections.GetSections();
+	auto section_names = sections.List();
 
 	for (const auto& name : section_names)
 	{
