@@ -6,6 +6,22 @@ A modern C++20 library for parsing and manipulating Windows Portable Executable 
 
 Premier PE Library provides a clean interface for working with Windows PE file formats. The library is designed to handle DOS headers, NT headers, Sections, Data directories and more with a focus on simplicity and performance.
 
+## Features
+
+The Following Features this Library currently offers will be listed below 
+
+```
+- Full PE32 and PE32+ (x86 / x64) parsing support
+- DOS header, NT headers, optional headers, and section table access
+- Import and export table enumeration (by name and ordinal)
+- Relocation table parsing with block and entry detail
+- TLS directory inspection and callback enumeration
+- Resource tree parsing with version info and manifest extraction
+- Rich header parsing with checksum validation and tool identification
+- RVA, VA, and file offset conversion utilities
+
+```
+
 ## Current Project Structure
 
 ```
