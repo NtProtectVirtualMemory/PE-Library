@@ -13,6 +13,8 @@
 
 #include <vector>
 #include <string_view>
+#include <cstring>
+#include <cstdio>
 
 // Typedefs
 
@@ -31,7 +33,6 @@ typedef [public] __int3264 LONG_PTR, * PLONG_PTR;
 typedef [public] unsigned __int3264 ULONG_PTR, * PULONG_PTR;
 
 #else  // midl64
-// old midl and C++ compiler
 
 #if defined(_WIN64)
 typedef __int64 INT_PTR, * PINT_PTR;
@@ -54,10 +55,20 @@ typedef _W64 unsigned long ULONG_PTR, * PULONG_PTR;
 #endif
 #endif // midl64
 
+#ifndef _UINTPTR_T_DEFINED
+#define _UINTPTR_T_DEFINED
+#ifdef _WIN64
+typedef unsigned __int64  uintptr_t;
+#else
+typedef unsigned int uintptr_t;
+#endif
+#endif
+
 // Constants
 
 constexpr WORD	IMAGE_SIZEOF_SHORT_NAME = 8;
 constexpr WORD	IMAGE_DOS_SIGNATURE = 0x5A4D; // MZ
+constexpr DWORD IMAGE_NT_SIGNATURE = 0x00004550; // PE\0\0
 constexpr WORD	IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10b; // PE32
 constexpr WORD	IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20b; // PE32+ (64-bit)
 constexpr WORD	IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16;
@@ -180,13 +191,13 @@ typedef struct _IMAGE_OPTIONAL_HEADER {
 typedef struct _IMAGE_NT_HEADERS64 {
 	DWORD Signature;
 	IMAGE_FILE_HEADER FileHeader;
-	IMAGE_OPTIONAL_HEADER64 OptionalHeader;
+	IMAGE_OPTIONAL_HEADER64 Optional;
 } IMAGE_NT_HEADERS64, * PIMAGE_NT_HEADERS64;
 
 typedef struct _IMAGE_NT_HEADERS {
 	DWORD Signature;
 	IMAGE_FILE_HEADER FileHeader;
-	IMAGE_OPTIONAL_HEADER32 OptionalHeader;
+	IMAGE_OPTIONAL_HEADER32 Optional;
 } IMAGE_NT_HEADERS32, * PIMAGE_NT_HEADERS32;
 
 #ifdef _WIN64
@@ -221,7 +232,7 @@ typedef struct _IMAGE_SECTION_HEADER {
 
 #define IMAGE_FIRST_SECTION( ntheader ) ((PIMAGE_SECTION_HEADER)        \
     ((ULONG_PTR)(ntheader) +                                            \
-     FIELD_OFFSET( IMAGE_NT_HEADERS, OptionalHeader ) +                 \
+     FIELD_OFFSET( IMAGE_NT_HEADERS, Optional ) +                 \
      ((ntheader))->FileHeader.SizeOfOptionalHeader   \
     ))
 
@@ -230,45 +241,37 @@ namespace PE
 	class Image;
 
 	/*
-	* @brief Represents the DOS header of a PE image
+	* @brief Do not instantiate this class directly. Use Image::DosHeader() instead!
 	*/
-	class DosHeader
+	class _DosHeader
 	{
-	private:
-		// Members
-		Image* m_image;
-
 	public:
-		DosHeader(Image* image) : m_image(image) {}
-		/*
-		* @brief Retrieves the DOS header
-		* @return A pointer to the DOS header, or nullptr if not found
-		*/
-		[[nodiscard]] PIMAGE_DOS_HEADER Get() const noexcept;
+		_DosHeader(Image* image) : m_image(image) {}
+		[[nodiscard]] const IMAGE_DOS_HEADER* Get() const noexcept;
+
+	private:
+		Image* m_image;
+		friend class Image;
+		[[nodiscard]] bool Validate(const std::vector<BYTE>& data) const noexcept;
 	};
 
 	/*
-	* @brief Represents the NT headers of a PE image
+	* @brief Do not instantiate this class directly. Use Image::NtHeaders() instead!
 	*/
-	class NtHeaders
+	class _NtHeaders
 	{
 	private:
-		// Members
 		Image* m_image;
-
-		// Private methods
-		[[nodiscard]] PIMAGE_NT_HEADERS32 Get32() const noexcept;
-		[[nodiscard]] PIMAGE_NT_HEADERS64 Get64() const noexcept;
+		friend class Image;
+		[[nodiscard]] const IMAGE_NT_HEADERS32* Get32() const noexcept;
+		[[nodiscard]] const IMAGE_NT_HEADERS64* Get64() const noexcept;
+		[[nodiscard]] bool Validate(const std::vector<BYTE>& data) const noexcept;
 
 	public:
-		NtHeaders(Image* image) : m_image(image) {}
+		_NtHeaders(Image* image) : m_image(image) {}
 
-		/*
-		* @brief Retrieves the NT headers based on the specified type
-		* @return A pointer to the NT headers of type T
-		*/
 		template<typename T>
-		[[nodiscard]] T* Get() const noexcept
+		[[nodiscard]] inline const T* Get() const noexcept
 		{
 			static_assert(std::is_same_v<T, IMAGE_NT_HEADERS32> ||
 				std::is_same_v<T, IMAGE_NT_HEADERS64>,
@@ -282,28 +285,22 @@ namespace PE
 	};
 
 	/*
-	* @brief Represents the Optional headers of a PE image
+	* @brief Do not instantiate this class directly. Use Image::OptionalHeader() instead!
 	*/
-	class OptionalHeader
+	class _OptionalHeader
 	{
 	private:
-
-		// Members
 		Image* m_image;
-
-		// Private methods
-		[[nodiscard]] PIMAGE_OPTIONAL_HEADER32 Get32() const noexcept;
-		[[nodiscard]] PIMAGE_OPTIONAL_HEADER64 Get64() const noexcept;
+		friend class Image;
+		[[nodiscard]] const IMAGE_OPTIONAL_HEADER32* Get32() const noexcept;
+		[[nodiscard]] const IMAGE_OPTIONAL_HEADER64* Get64() const noexcept;
+		[[nodiscard]] bool Validate(const std::vector<BYTE>& data) const noexcept;
 
 	public:
-		OptionalHeader(Image* image) : m_image(image) {}
+		_OptionalHeader(Image* image) : m_image(image) {}
 
-		/*
-		* @brief Retrieves the Optional headers based on the specified type
-		* @return A pointer to the Optional headers of type T
-		*/
 		template<typename T>
-		[[nodiscard]] T* Get() const noexcept
+		[[nodiscard]] inline const T* Get() const noexcept
 		{
 			static_assert(std::is_same_v<T, IMAGE_OPTIONAL_HEADER32> ||
 				std::is_same_v<T, IMAGE_OPTIONAL_HEADER64>,
@@ -317,6 +314,25 @@ namespace PE
 	};
 
 	/*
+	* @brief Do not instantiate this class directly. Use Image::Sections() instead!
+	*/
+	class _Sections
+	{
+	private:
+		Image* m_image;
+		WORD m_number_of_sections = 0;
+		const IMAGE_SECTION_HEADER* m_sections = nullptr;
+		friend class Image;
+		[[nodiscard]] bool Validate(const std::vector<BYTE>& data) noexcept;
+
+	public:
+		_Sections(Image* image);
+
+		[[nodiscard]] std::vector<std::string_view> List() const noexcept;
+		[[nodiscard]] const IMAGE_SECTION_HEADER* Get(const char* name) const noexcept;
+	};
+
+	/*
 	* @brief Represents a PE image
 	*/
 	class Image
@@ -325,219 +341,142 @@ namespace PE
 		Image(const char* path);
 		~Image() = default;
 
-		/*
-		* @brief Checks if the PE image is valid
-		* @return True if the PE image is valid, false otherwise
-		*/
 		[[nodiscard]] __forceinline constexpr bool IsValid() const noexcept { return m_valid; }
-
-		/*
-		* @brief Checks if the PE image is a 32-bit image
-		* @return True if the PE image is 32-bit, false otherwise
-		*/
 		[[nodiscard]] __forceinline constexpr bool IsPE32() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
-
-		/*
-		* @brief Checks if the PE image is a 64-bit image
-		* @return True if the PE image is 64-bit, false otherwise
-		*/
 		[[nodiscard]] __forceinline constexpr bool IsPE64() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
 
-		DosHeader _DOS() noexcept { return DosHeader(this); }
-		NtHeaders _NT() noexcept { return NtHeaders(this); }
-		OptionalHeader _OPTIONAL() noexcept { return OptionalHeader(this); }
+		_Sections		Sections() noexcept { return _Sections(this); }
+		_DosHeader		DosHeader() noexcept { return _DosHeader(this); }
+		_NtHeaders	    NtHeaders() noexcept { return _NtHeaders(this); }
+		_OptionalHeader OptionalHeader() noexcept { return _OptionalHeader(this); }
 
-		std::vector<BYTE>& Data() noexcept { return m_data; }
+		const std::vector<BYTE>& Data() const noexcept { return m_data; }
 
 	private:
-
-		// Members
 		std::vector<BYTE> m_data;
 		bool m_valid = false;
 		WORD m_magic = 0;
 
-		// Friends
-		friend class DosHeader;
-		friend class NtHeaders;
-		friend class OptionalHeader;
-
-		// Private methods
-		bool Validate() noexcept
+		inline bool ValidateImage() noexcept
 		{
-			if (m_data.size() < sizeof(IMAGE_DOS_HEADER))
-			{
+			if (m_data.empty())
 				return false;
+
+			if (!DosHeader().Validate(m_data))
+				return false;
+
+			if (!NtHeaders().Validate(m_data))
+				return false;
+
+			if (!OptionalHeader().Validate(m_data))
+				return false;
+
+			auto dos = DosHeader().Get();
+			if (dos)
+			{
+				size_t optional_offset = dos->e_lfanew + sizeof(DWORD) + sizeof(IMAGE_FILE_HEADER);
+				if (optional_offset + sizeof(WORD) <= m_data.size())
+				{
+					m_magic = *reinterpret_cast<const WORD*>(m_data.data() + optional_offset);
+				}
 			}
 
-			auto dos_header = _DOS().Get();
-			if (!dos_header || dos_header->e_magic != IMAGE_DOS_SIGNATURE)
-			{
+			if (!Sections().Validate(m_data))
 				return false;
-			}
-
-			if (m_data.size() < dos_header->e_lfanew + sizeof(IMAGE_NT_HEADERS32)) // Was crim here?
-			{
-				return false;
-			}
 
 			m_valid = true;
 			return true;
 		}
-
 	};
 
-	/*
-	* @brief Represents the sections in the PE image
-	*/
-	class Sections
-	{
-	private:
-		// Members
-		Image* m_image;
-		WORD m_number_of_sections = 0;
-		PIMAGE_SECTION_HEADER m_sections = nullptr;
+	// DOS HEADER
 
-	public:
-		Sections(Image* image) : m_image(image)
-		{
-			if (!m_image || !m_image->IsValid())
-			{
-				return;
-			}
-			if (m_image->IsPE64())
-			{
-				auto nt_headers = m_image->_NT().Get<IMAGE_NT_HEADERS64>();
-				if (!nt_headers)
-				{
-					return;
-				}
-				m_number_of_sections = nt_headers->FileHeader.NumberOfSections;
-				m_sections = IMAGE_FIRST_SECTION(nt_headers);
-			}
-			else if (m_image->IsPE32())
-			{
-				auto nt_headers = m_image->_NT().Get<IMAGE_NT_HEADERS32>();
-				if (!nt_headers)
-				{
-					return;
-				}
-				m_number_of_sections = nt_headers->FileHeader.NumberOfSections;
-				m_sections = IMAGE_FIRST_SECTION(nt_headers);
-			}
-		}
-
-		/*
-		* @brief Retrieves the names of all sections
-		* @return A vector containing the names of all sections
-		*/
-		[[nodiscard]] inline std::vector<std::string_view> List() const noexcept
-		{
-			std::vector<std::string_view> section_names;
-			for (size_t i = 0; i < m_number_of_sections; ++i)
-			{
-				section_names.emplace_back(reinterpret_cast<const char*>(m_sections[i].Name), IMAGE_SIZEOF_SHORT_NAME);
-			}
-
-			return section_names;
-		}
-
-		/*
-		* @brief Retrieves section header based on the specified name
-		* @param name The name of the section to retrieve
-		* @return A pointer to the section header, or nullptr if not found
-		*/
-		[[nodiscard]] PIMAGE_SECTION_HEADER Get(const char* name) const noexcept
-		{
-			for (size_t i = 0; i < m_number_of_sections; ++i)
-			{
-				if (_stricmp(reinterpret_cast<char*>(m_sections[i].Name), name) == 0)
-				{
-					return &m_sections[i];
-				}
-			}
-
-			return nullptr;
-		}
-	};
-
-	/*
-	* @brief Represents the directories in the PE image
-	*/
-	class Directories
-	{
-	private:
-
-	public:
-
-	};
-
-	// DOS Header
-
-	inline PIMAGE_DOS_HEADER PE::DosHeader::Get() const noexcept
+	inline const IMAGE_DOS_HEADER* PE::_DosHeader::Get() const noexcept
 	{
 		if (!m_image || m_image->Data().empty())
-		{
 			return nullptr;
-		}
 
-		return reinterpret_cast<PIMAGE_DOS_HEADER>(m_image->Data().data());
+		return reinterpret_cast<const IMAGE_DOS_HEADER*>(m_image->Data().data());
 	}
 
-	// NT Headers
 
-	inline PIMAGE_NT_HEADERS32 PE::NtHeaders::Get32() const noexcept
+	// NT HEADERS
+
+	inline const IMAGE_NT_HEADERS32* PE::_NtHeaders::Get32() const noexcept
 	{
 		if (!m_image)
-		{
 			return nullptr;
-		}
 
-		auto dos_header = m_image->_DOS().Get();
+		auto dos_header = m_image->DosHeader().Get();
 		if (!dos_header || m_image->Data().empty())
-		{
 			return nullptr;
-		}
 
-		return reinterpret_cast<PIMAGE_NT_HEADERS32>(m_image->Data().data() + dos_header->e_lfanew);
+		return reinterpret_cast<const IMAGE_NT_HEADERS32*>(m_image->Data().data() + dos_header->e_lfanew);
 	}
 
-	inline PIMAGE_NT_HEADERS64 PE::NtHeaders::Get64() const noexcept
+	inline const IMAGE_NT_HEADERS64* PE::_NtHeaders::Get64() const noexcept
 	{
 		if (!m_image)
-		{
 			return nullptr;
-		}
 
-		auto dos_header = m_image->_DOS().Get();
+		auto dos_header = m_image->DosHeader().Get();
 		if (!dos_header || m_image->Data().empty())
-		{
 			return nullptr;
-		}
 
-		return reinterpret_cast<PIMAGE_NT_HEADERS64>(m_image->Data().data() + dos_header->e_lfanew);
+		return reinterpret_cast<const IMAGE_NT_HEADERS64*>(m_image->Data().data() + dos_header->e_lfanew);
 	}
 
-	// Optional Header
-	inline PIMAGE_OPTIONAL_HEADER32 PE::OptionalHeader::Get32() const noexcept
+
+	// OPTIONAL HEADER
+
+	inline const IMAGE_OPTIONAL_HEADER32* PE::_OptionalHeader::Get32() const noexcept
 	{
 		if (!m_image)
-		{
 			return nullptr;
-		}
 
-		auto nt_headers = m_image->_NT().Get<IMAGE_NT_HEADERS32>();
-		return nt_headers ? &nt_headers->OptionalHeader : nullptr;
+		auto nt_headers = m_image->NtHeaders().Get<IMAGE_NT_HEADERS32>();
+		return nt_headers ? &nt_headers->Optional : nullptr;
 	}
 
-	inline PIMAGE_OPTIONAL_HEADER64 PE::OptionalHeader::Get64() const noexcept
+	inline const IMAGE_OPTIONAL_HEADER64* PE::_OptionalHeader::Get64() const noexcept
 	{
 		if (!m_image)
-		{
 			return nullptr;
+
+		auto nt_headers = m_image->NtHeaders().Get<IMAGE_NT_HEADERS64>();
+		return nt_headers ? &nt_headers->Optional : nullptr;
+	}
+
+	// SECTIONS
+
+	inline std::vector<std::string_view> PE::_Sections::List() const noexcept
+	{
+		std::vector<std::string_view> section_names;
+		section_names.reserve(m_number_of_sections);
+
+		for (size_t i = 0; i < m_number_of_sections; ++i)
+		{
+			size_t name_len = 0;
+			for (size_t j = 0; j < IMAGE_SIZEOF_SHORT_NAME && m_sections[i].Name[j] != '\0'; ++j)
+				name_len++;
+
+			section_names.emplace_back(reinterpret_cast<const char*>(m_sections[i].Name), name_len);
 		}
 
-		auto nt_headers = m_image->_NT().Get<IMAGE_NT_HEADERS64>();
-		return nt_headers ? &nt_headers->OptionalHeader : nullptr;
+		return section_names;
+	}
+
+	inline const IMAGE_SECTION_HEADER* PE::_Sections::Get(const char* name) const noexcept
+	{
+		for (size_t i = 0; i < m_number_of_sections; ++i)
+		{
+			if (_stricmp(reinterpret_cast<const char*>(m_sections[i].Name), name) == 0) // Not the best way to do it (Should use std::strncmp)
+			{
+				return &m_sections[i];
+			}
+		}
+
+		return nullptr;
 	}
 
 } // namespace PE

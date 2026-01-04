@@ -36,8 +36,8 @@ int main(int argc, char* argv[]) {
 			printf("The file is PE32 (32-bit)\n");
 
 			// Get headers
-			auto nt_headers = image._NT().Get<IMAGE_NT_HEADERS32>();
-			auto optional_headers = image._OPTIONAL().Get<IMAGE_OPTIONAL_HEADER32>();
+			auto nt_headers = image.NtHeaders().Get<IMAGE_NT_HEADERS32>();
+			auto optional_headers = image.OptionalHeader().Get<IMAGE_OPTIONAL_HEADER32>();
 
 			// Display some stuff from both headers
 			printf("NT Headers Signature: 0x%X\n", nt_headers->Signature);
@@ -49,8 +49,8 @@ int main(int argc, char* argv[]) {
 			printf("The file is PE32+ (64-bit)\n");
 
 			// Get headers
-			auto nt_headers = image._NT().Get<IMAGE_NT_HEADERS64>();
-			auto optional_headers = image._OPTIONAL().Get<IMAGE_OPTIONAL_HEADER64>();
+			auto nt_headers = image.NtHeaders().Get<IMAGE_NT_HEADERS64>();
+			auto optional_headers = image.OptionalHeader().Get<IMAGE_OPTIONAL_HEADER64>();
 
 			// Display something from both headers
 			printf("NT Headers Signature: 0x%X\n", nt_headers->Signature);
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Get the DOS header
-	auto dos_header = image._DOS().Get();
+	auto dos_header = image.DosHeader().Get();
 	if (dos_header)
 	{
 		printf("DOS Header e_magic: 0x%X\n", dos_header->e_magic);
@@ -84,8 +84,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Get a section by name (e.g., ".data")
-	PE::Sections text_section(&image);
-	auto section_header = text_section.Get(".data");
+	auto section_header = image.Sections().Get(".data");
 	if (section_header)
 	{
 		printf("* .data section:\n");
@@ -102,8 +101,7 @@ int main(int argc, char* argv[]) {
 	// Or display all sections
 
 	printf("\n");
-	PE::Sections sections(&image);
-	auto section_names = sections.List();
+	auto section_names = image.Sections().List();
 
 	for (const auto& name : section_names)
 	{
