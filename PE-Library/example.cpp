@@ -13,7 +13,6 @@ __forceinline static void wait(std::chrono::duration<Rep, Period> duration) noex
 // Example usage
 
 int main(int argc, char* argv[]) {
-
 	if (argc < 2) {
 		printf("Usage: %s <path to PE file>\n", argv[0]);
 		wait(std::chrono::seconds(3));
@@ -42,7 +41,6 @@ int main(int argc, char* argv[]) {
 			// Display some stuff from both headers
 			printf("NT Headers Signature: 0x%X\n", nt_headers->Signature);
 			printf("Optional Header ImageBase: 0x%X\n\n", optional_headers->ImageBase);
-
 		}
 		else if (image.IsPE64())
 		{
@@ -59,7 +57,6 @@ int main(int argc, char* argv[]) {
 		else
 		{
 			printf("The file is a valid PE but neither PE32 nor PE32+.\n");
-
 		}
 	}
 	else
@@ -83,6 +80,8 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
+	printf("Sections validated successfully.\n\n");
+
 	// Get a section by name (e.g., ".data")
 	auto section_header = image.Sections().Get(".data");
 	if (section_header)
@@ -93,22 +92,266 @@ int main(int argc, char* argv[]) {
 	}
 	else
 	{
+		// Im making this non fatal for a crash, because not all PE's have it
 		printf("Couldn't find .data section.\n");
-		wait(std::chrono::seconds(3));
-		return EXIT_FAILURE;
 	}
 
-	// Or display all sections
-
+	// Display all sections
 	printf("\n");
 	auto section_names = image.Sections().List();
-
 	for (const auto& name : section_names)
 	{
-		printf("* Section: %.*s\n", IMAGE_SIZEOF_SHORT_NAME, name.data());
+		printf("* Section: %.*s\n", static_cast<int>(IMAGE_SIZEOF_SHORT_NAME), name.data());
 	}
-	printf("\n");
 
+	// Display imports (IAT)
+	printf("\nDisplaying IAT\n");
+	if (image.Imports().Present())
+	{
+		printf("Number of imported DLLs: %zu\n\n", image.Imports().GetModuleCount());
+
+		auto all_imports = image.Imports().GetAllImports();
+		for (const auto& entry : all_imports)
+		{
+			printf("[%s] (%zu fn per Dll)\n", entry.dll_name.data(), entry.functions.size());
+
+			for (const auto& func : entry.functions)
+			{
+				if (func.is_ordinal)
+				{
+					printf("    [Ordinal] %u\n", func.ordinal);
+				}
+				else
+				{
+					printf("    [%04X] %s\n", func.hint, func.name.data());
+				}
+			}
+
+			printf("\n");
+		}
+	}
+	else
+	{
+		printf("No imports found.\n");
+	}
+
+	printf("\Displaying Exports\n");
+	if (image.Exports().Present())
+	{
+		printf("Module name: %s\n", image.Exports().ModuleName().data());
+		printf("Export count: %zu\n\n", image.Exports().Count());
+
+		auto all_exports = image.Exports().All();
+		for (const auto& exp : all_exports)
+		{
+			if (exp.is_forwarded)
+			{
+				printf("  [%04X] %s -> %s (forwarded)\n",
+					exp.ordinal,
+					exp.name.empty() ? "(no name)" : exp.name.data(),
+					exp.forward_name.data());
+			}
+			else
+			{
+				printf("  [%04X] %s @ RVA: 0x%08X | VA: 0x%llX | File: 0x%08X\n",
+					exp.ordinal,
+					exp.name.empty() ? "(no name)" : exp.name.data(),
+					exp.rva,
+					exp.va,
+					exp.file_offset);
+			}
+		}
+
+		printf("\nTrying to Lookup by Name\n");
+		auto found = image.Exports().ByName("DllMain");
+		if (!found.name.empty())
+		{
+			printf("Found DllMain @ RVA: 0x%08X\n", found.rva);
+		}
+		else
+		{
+			printf("DllMain not found\n");
+		}
+	}
+	else
+	{
+		printf("No exports found (No Worries, this is normal for .exe's )\n");
+	}
+
+	// Display Relocations
+	printf("\nDisplaying Relocations\n");
+	if (image.Relocations().Present())
+	{
+		printf("Total relocation entries: %zu\n\n", image.Relocations().Count());
+
+		auto blocks = image.Relocations().GetBlocks();
+		printf("Number of relocation blocks: %zu\n\n", blocks.size());
+
+		// Show first few blocks
+		size_t blocks_to_show = blocks.size() > 5 ? 5 : blocks.size();
+		for (size_t i = 0; i < blocks_to_show; ++i)
+		{
+			const auto& block = blocks[i];
+			printf("  Block @ Page RVA: 0x%08X (%zu entries)\n", block.page_rva, block.entries.size());
+
+			// Show first few entries per block
+			size_t entries_to_show = block.entries.size() > 3 ? 3 : block.entries.size();
+			for (size_t j = 0; j < entries_to_show; ++j)
+			{
+				const auto& entry = block.entries[j];
+				printf("    RVA: 0x%08X | Type: %s | File: 0x%08X\n",
+					entry.rva,
+					PE::_Relocations::TypeToString(entry.type).data(),
+					entry.file_offset);
+			}
+
+			if (block.entries.size() > 3)
+			{
+				printf("    ... and %zu more entries\n", block.entries.size() - 3);
+			}
+		}
+
+		if (blocks.size() > 5)
+		{
+			printf("\n  ... and %zu more blocks\n", blocks.size() - 5);
+		}
+	}
+	else
+	{
+		printf("No relocations found.\n");
+	}
+
+	// Display TLS
+	printf("\nDisplaying TLS\n");
+	if (image.TLS().Present())
+	{
+		auto tls_info = image.TLS().GetInfo();
+
+		printf("TLS Directory:\n");
+		printf("  Raw Data Start VA:  0x%llX\n", tls_info.raw_data_start_va);
+		printf("  Raw Data End VA:    0x%llX\n", tls_info.raw_data_end_va);
+		printf("  Raw Data Size:      0x%X\n", tls_info.raw_data_size);
+		printf("  Index VA:           0x%llX\n", tls_info.index_va);
+		printf("  Callbacks VA:       0x%llX\n", tls_info.callbacks_va);
+		printf("  Zero Fill Size:     0x%X\n", tls_info.zero_fill_size);
+		printf("  Characteristics:    0x%X\n", tls_info.characteristics);
+
+		if (image.TLS().HasCallbacks())
+		{
+			auto callbacks = image.TLS().GetCallbacks();
+			printf("\n  TLS Callbacks (%zu):\n", callbacks.size());
+
+			for (const auto& cb : callbacks)
+			{
+				printf("    VA: 0x%llX | RVA: 0x%08X | File: 0x%08X\n",
+					cb.va, cb.rva, cb.file_offset);
+			}
+		}
+		else
+		{
+			printf("\n  No TLS callbacks registered.\n");
+		}
+	}
+	else
+	{
+		printf("No TLS directory found.\n");
+	}
+
+	// Display Resources
+	printf("\nDisplaying Resources\n");
+	if (image.Resources().Present())
+	{
+		printf("Total resource entries: %zu\n\n", image.Resources().Count());
+
+		auto type_ids = image.Resources().GetTypeIds();
+		printf("Resource types present: ");
+		for (size_t i = 0; i < type_ids.size(); ++i)
+		{
+			printf("%s (%u)", PE::_Resources::TypeToString(type_ids[i]).data(), type_ids[i]);
+			if (i < type_ids.size() - 1)
+				printf(", ");
+		}
+		printf("\n\n");
+
+		auto all_resources = image.Resources().GetAll();
+		for (const auto& res : all_resources)
+		{
+			const char* type_str = res.type_name.empty()
+				? PE::_Resources::TypeToString(res.type_id).data()
+				: res.type_name.c_str();
+
+			printf("  [%s] ID: %u | Lang: 0x%04X | Size: 0x%X | RVA: 0x%08X\n",
+				type_str,
+				res.resource_id,
+				res.language_id,
+				res.data_size,
+				res.data_rva);
+		}
+
+		// Try to get version info
+		auto version = image.Resources().GetVersionInfo();
+		if (version.has_value())
+		{
+			printf("\n  Version Info:\n");
+			printf("    File Version:    %u.%u.%u.%u\n",
+				version->major, version->minor, version->build, version->revision);
+			printf("    Product Version: %u.%u.%u.%u\n",
+				version->product_major, version->product_minor,
+				version->product_build, version->product_revision);
+			printf("    File OS:         0x%08X\n", version->file_os);
+			printf("    File Type:       0x%08X\n", version->file_type);
+		}
+
+		// Try to get manifest
+		auto manifest = image.Resources().GetManifest();
+		if (!manifest.empty())
+		{
+			printf("\n  Manifest present (%zu bytes)\n", manifest.size());
+
+			// Show first 200 chars of manifest
+			size_t preview_len = manifest.size() > 200 ? 200 : manifest.size();
+			printf("  Preview: %.200s", manifest.data());
+			if (manifest.size() > 200)
+			{
+				printf("...\n");
+			}
+			else
+			{
+				printf("\n");
+			}
+		}
+	}
+	else
+	{
+		printf("No resources found.\n");
+	}
+
+	printf("\nDisplaying Rich Header\n");
+	if (image.RichHeader().Present())
+	{
+		printf("Rich Header found!\n");
+		printf("  Offset:   0x%08X\n", image.RichHeader().GetRawOffset());
+		printf("  Size:     0x%08X\n", image.RichHeader().GetRawSize());
+		printf("  Checksum: 0x%08X\n", image.RichHeader().GetChecksum());
+		printf("  Valid:    %s\n\n", image.RichHeader().ValidateChecksum() ? "Yes" : "No");
+
+		auto entries = image.RichHeader().GetEntries();
+		printf("  Tool entries (%zu):\n", entries.size());
+
+		for (const auto& entry : entries)
+		{
+			printf("    [%s] Build: %u | Count: %u\n",
+				PE::_RichHeader::ProductIdToString(entry.product_id).data(),
+				entry.build_id,
+				entry.use_count);
+		}
+	}
+	else
+	{
+		printf("No Rich Header found (may be stripped or non-MSVC build).\n");
+	}
+
+	printf("\n");
 	system("pause");
 	return EXIT_SUCCESS;
 }

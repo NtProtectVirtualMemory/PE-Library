@@ -15,6 +15,8 @@
 #include <string_view>
 #include <cstring>
 #include <cstdio>
+#include <string>
+#include <optional>
 
 // Typedefs
 
@@ -73,7 +75,172 @@ constexpr WORD	IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10b; // PE32
 constexpr WORD	IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20b; // PE32+ (64-bit)
 constexpr WORD	IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16;
 
+constexpr WORD IMAGE_DIRECTORY_ENTRY_EXPORT = 0;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_IMPORT = 1;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_RESOURCE = 2;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_EXCEPTION = 3;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_SECURITY = 4;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_BASERELOC = 5;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_DEBUG = 6;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_ARCHITECTURE = 7;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_GLOBALPTR = 8;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_TLS = 9;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG = 10;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT = 11;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_IAT = 12;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT = 13;
+constexpr WORD IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR = 14;
+
+constexpr ULONGLONG IMAGE_ORDINAL_FLAG64 = 0x8000000000000000ULL;
+constexpr DWORD     IMAGE_ORDINAL_FLAG32 = 0x80000000;
+
+constexpr WORD IMAGE_REL_BASED_ABSOLUTE = 0;   // Padding (skip)
+constexpr WORD IMAGE_REL_BASED_HIGH = 1;   // High 16 bits
+constexpr WORD IMAGE_REL_BASED_LOW = 2;   // Low 16 bits
+constexpr WORD IMAGE_REL_BASED_HIGHLOW = 3;   // Full 32-bit (x86)
+constexpr WORD IMAGE_REL_BASED_HIGHADJ = 4;   // High 16 + adjust
+constexpr WORD IMAGE_REL_BASED_DIR64 = 10;  // Full 64-bit (x64)
+
+constexpr WORD RT_CURSOR = 1;
+constexpr WORD RT_BITMAP = 2;
+constexpr WORD RT_ICON = 3;
+constexpr WORD RT_MENU = 4;
+constexpr WORD RT_DIALOG = 5;
+constexpr WORD RT_STRING = 6;
+constexpr WORD RT_FONTDIR = 7;
+constexpr WORD RT_FONT = 8;
+constexpr WORD RT_ACCELERATOR = 9;
+constexpr WORD RT_RCDATA = 10;
+constexpr WORD RT_MESSAGETABLE = 11;
+constexpr WORD RT_GROUP_CURSOR = 12;
+constexpr WORD RT_GROUP_ICON = 14;
+constexpr WORD RT_VERSION = 16;
+constexpr WORD RT_MANIFEST = 24;
+
+constexpr DWORD RICH_SIGNATURE = 0x68636952; // "Rich"
+constexpr DWORD DANS_SIGNATURE = 0x536E6144; // "DanS"
+
+
 // Structs
+
+
+// User Defined Structures
+
+//The Structures below correspond the class _RichHeader
+
+struct RichEntry
+{
+	WORD  build_id;      // Tool build number
+	WORD  product_id;    // Tool/product identifier  
+	DWORD use_count;     // Number of objects built with this tool
+};
+
+
+//The Structures below correspond the class _Resources
+
+struct ResourceEntry
+{
+	WORD        type_id;
+	std::string type_name;
+	WORD        resource_id;
+	std::string resource_name;
+	WORD        language_id;
+	DWORD       data_rva;
+	DWORD       data_size;
+	DWORD       file_offset;
+	DWORD       code_page;
+};
+
+struct VersionInfo
+{
+	WORD  major;
+	WORD  minor;
+	WORD  build;
+	WORD  revision;
+	WORD  product_major;
+	WORD  product_minor;
+	WORD  product_build;
+	WORD  product_revision;
+	DWORD file_flags;
+	DWORD file_os;
+	DWORD file_type;
+};
+
+
+//The Structures below correspond the class _TLS
+
+struct TLSCallback
+{
+	ULONGLONG va;
+	DWORD     rva;
+	DWORD     file_offset;
+};
+
+struct TLSInfo
+{
+	ULONGLONG raw_data_start_va;
+	ULONGLONG raw_data_end_va;
+	ULONGLONG index_va;
+	ULONGLONG callbacks_va;
+	DWORD     zero_fill_size;
+	DWORD     characteristics;
+	DWORD     raw_data_size;
+};
+
+
+//The Structures below correspond the class _Relocations
+
+struct RelocationEntry
+{
+	DWORD rva;
+	WORD  type;
+	DWORD file_offset;
+};
+
+struct RelocationBlock
+{
+	DWORD page_rva;
+	std::vector<RelocationEntry> entries;
+};
+
+
+//The Structures below correspond the class _Imports
+
+struct ExportFunction
+{
+	std::string_view name;
+	DWORD rva;
+	ULONGLONG va;
+	DWORD file_offset;
+	WORD ordinal;
+	bool is_forwarded;
+	std::string_view forward_name;
+};
+
+
+//The Structures below correspond the class _Imports
+
+struct ImportFunction
+{
+	std::string_view name;
+	WORD hint;
+	WORD ordinal;
+	bool is_ordinal;
+};
+
+struct ImportEntry
+{
+	std::string_view dll_name;
+	std::vector<ImportFunction> functions;
+};
+
+
+//Architecture Structure of Windows
+
+typedef struct _IMAGE_BASE_RELOCATION {
+	DWORD   VirtualAddress;
+	DWORD   SizeOfBlock;
+} IMAGE_BASE_RELOCATION, * PIMAGE_BASE_RELOCATION;
 
 typedef struct _IMAGE_DOS_HEADER {      // DOS .EXE header
 	WORD   e_magic;                     // Magic number
@@ -96,6 +263,41 @@ typedef struct _IMAGE_DOS_HEADER {      // DOS .EXE header
 	WORD   e_res2[10];                  // Reserved words
 	LONG   e_lfanew;                    // File address of new exe header
 } IMAGE_DOS_HEADER, * PIMAGE_DOS_HEADER;
+
+typedef struct _IMAGE_RESOURCE_DIRECTORY {
+	DWORD   Characteristics;
+	DWORD   TimeDateStamp;
+	WORD    MajorVersion;
+	WORD    MinorVersion;
+	WORD    NumberOfNamedEntries;
+	WORD    NumberOfIdEntries;
+	// Followed by IMAGE_RESOURCE_DIRECTORY_ENTRY[]
+} IMAGE_RESOURCE_DIRECTORY, * PIMAGE_RESOURCE_DIRECTORY;
+
+typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY {
+	union {
+		struct {
+			DWORD NameOffset : 31;
+			DWORD NameIsString : 1;
+		};
+		DWORD Name;
+		WORD  Id;
+	};
+	union {
+		DWORD OffsetToData;
+		struct {
+			DWORD OffsetToDirectory : 31;
+			DWORD DataIsDirectory : 1;
+		};
+	};
+} IMAGE_RESOURCE_DIRECTORY_ENTRY, * PIMAGE_RESOURCE_DIRECTORY_ENTRY;
+
+typedef struct _IMAGE_RESOURCE_DATA_ENTRY {
+	DWORD   OffsetToData;   // RVA to actual resource data
+	DWORD   Size;
+	DWORD   CodePage;
+	DWORD   Reserved;
+} IMAGE_RESOURCE_DATA_ENTRY, * PIMAGE_RESOURCE_DATA_ENTRY;
 
 typedef struct _IMAGE_FILE_HEADER {
 	WORD    Machine;
@@ -224,6 +426,72 @@ typedef struct _IMAGE_SECTION_HEADER {
 	DWORD   Characteristics;
 } IMAGE_SECTION_HEADER, * PIMAGE_SECTION_HEADER;
 
+typedef struct _IMAGE_IMPORT_DESCRIPTOR {
+	union {
+		DWORD   Characteristics;
+		DWORD   OriginalFirstThunk;
+	};
+	DWORD   TimeDateStamp;
+	DWORD   ForwarderChain;
+	DWORD   Name;
+	DWORD   FirstThunk;
+} IMAGE_IMPORT_DESCRIPTOR, * PIMAGE_IMPORT_DESCRIPTOR;
+
+typedef struct _IMAGE_THUNK_DATA64 {
+	union {
+		ULONGLONG ForwarderString;
+		ULONGLONG Function;
+		ULONGLONG Ordinal;
+		ULONGLONG AddressOfData;
+	} u1;
+} IMAGE_THUNK_DATA64, * PIMAGE_THUNK_DATA64;
+
+typedef struct _IMAGE_THUNK_DATA32 {
+	union {
+		DWORD ForwarderString;
+		DWORD Function;
+		DWORD Ordinal;
+		DWORD AddressOfData;
+	} u1;
+} IMAGE_THUNK_DATA32, * PIMAGE_THUNK_DATA32;
+
+typedef struct _IMAGE_IMPORT_BY_NAME {
+	WORD    Hint;
+	char    Name[1];
+} IMAGE_IMPORT_BY_NAME, * PIMAGE_IMPORT_BY_NAME;
+
+typedef struct _IMAGE_EXPORT_DIRECTORY {
+	DWORD   Characteristics;
+	DWORD   TimeDateStamp;
+	WORD    MajorVersion;
+	WORD    MinorVersion;
+	DWORD   Name;
+	DWORD   Base;
+	DWORD   NumberOfFunctions;
+	DWORD   NumberOfNames;
+	DWORD   AddressOfFunctions;
+	DWORD   AddressOfNames;
+	DWORD   AddressOfNameOrdinals;
+} IMAGE_EXPORT_DIRECTORY, * PIMAGE_EXPORT_DIRECTORY;
+
+typedef struct _IMAGE_TLS_DIRECTORY64 {
+	ULONGLONG StartAddressOfRawData;
+	ULONGLONG EndAddressOfRawData;
+	ULONGLONG AddressOfIndex;
+	ULONGLONG AddressOfCallBacks;    // VA to null-terminated callback array
+	DWORD     SizeOfZeroFill;
+	DWORD     Characteristics;
+} IMAGE_TLS_DIRECTORY64, * PIMAGE_TLS_DIRECTORY64;
+
+typedef struct _IMAGE_TLS_DIRECTORY32 {
+	DWORD StartAddressOfRawData;
+	DWORD EndAddressOfRawData;
+	DWORD AddressOfIndex;
+	DWORD AddressOfCallBacks;
+	DWORD SizeOfZeroFill;
+	DWORD Characteristics;
+} IMAGE_TLS_DIRECTORY32, * PIMAGE_TLS_DIRECTORY32;
+
 // Defines
 
 #ifndef FIELD_OFFSET
@@ -332,6 +600,163 @@ namespace PE
 		[[nodiscard]] const IMAGE_SECTION_HEADER* Get(const char* name) const noexcept;
 	};
 
+
+	class _DataDirectory
+	{
+	private:
+
+		Image* m_image;
+		friend class Image;
+
+	public:
+		_DataDirectory(Image* image) : m_image(image) {}
+
+		[[nodiscard]] const IMAGE_DATA_DIRECTORY* Get(WORD index) const noexcept;
+		template<typename T>
+		[[nodiscard]] const T* GetData(WORD index) const noexcept;
+		[[nodiscard]] bool Exists(WORD index) const noexcept;
+		[[nodiscard]] DWORD RvaToOffset(DWORD rva) const noexcept;
+		[[nodiscard]] DWORD VaToRva(ULONGLONG va) const noexcept;
+		[[nodiscard]] DWORD OffsetToRva(DWORD file_offset) const noexcept;
+	};
+
+
+	/*
+	* @brief Do not instantiate this class directly. Use Image::Imports() instead!
+	*/
+	class _Imports
+	{
+	private:
+		Image* m_image;
+
+	public:
+		_Imports(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool Present() const noexcept;
+		[[nodiscard]] std::vector<std::string_view> GetImportedModules() const noexcept;
+		[[nodiscard]] std::vector<ImportEntry> GetAllImports() const noexcept;
+		[[nodiscard]] std::vector<ImportFunction> FunctionFromModule(const char* dll_name) const noexcept;
+		[[nodiscard]] const IMAGE_IMPORT_DESCRIPTOR* GetDescriptors() const noexcept;
+		[[nodiscard]] size_t GetModuleCount() const noexcept;
+	};
+
+
+	/*
+	* @brief Do not instantiate this class directly. Use Image::Exports() instead!
+	*/
+	class _Exports
+	{
+	private:
+		Image* m_image;
+
+	public:
+		_Exports(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool Present() const noexcept;
+		[[nodiscard]] std::string_view ModuleName() const noexcept;
+		[[nodiscard]] std::vector<ExportFunction> All() const noexcept;
+		[[nodiscard]] ExportFunction ByName(const char* name) const noexcept;
+		[[nodiscard]] ExportFunction ByOrdinal(WORD ordinal) const noexcept;
+		[[nodiscard]] size_t Count() const noexcept;
+		[[nodiscard]] const IMAGE_EXPORT_DIRECTORY* GetDescriptor() const noexcept;
+	};
+
+
+	/*
+	* @brief Do not instantiate this class directly. Use Image::Relocations() instead!
+	*/
+	class _Relocations
+	{
+	private:
+		Image* m_image;
+
+	public:
+		_Relocations(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool Present() const noexcept;
+		[[nodiscard]] std::vector<RelocationBlock> GetBlocks() const noexcept;
+		[[nodiscard]] std::vector<RelocationEntry> GetAllEntries() const noexcept;
+		[[nodiscard]] size_t Count() const noexcept;
+		[[nodiscard]] const IMAGE_BASE_RELOCATION* GetRawTable() const noexcept;
+
+		[[nodiscard]] static std::string_view TypeToString(WORD type) noexcept;
+	};
+
+
+	/*
+	* @brief Do not instantiate this class directly. Use Image::TLS() instead!
+	*/
+	class _TLS
+	{
+	private:
+		Image* m_image;
+
+	public:
+		_TLS(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool Present() const noexcept;
+		[[nodiscard]] TLSInfo GetInfo() const noexcept;
+		[[nodiscard]] std::vector<TLSCallback> GetCallbacks() const noexcept;
+		[[nodiscard]] size_t CallbackCount() const noexcept;
+		[[nodiscard]] bool HasCallbacks() const noexcept;
+
+		[[nodiscard]] const IMAGE_TLS_DIRECTORY32* GetDirectory32() const noexcept;
+		[[nodiscard]] const IMAGE_TLS_DIRECTORY64* GetDirectory64() const noexcept;
+
+		template<typename T>
+		[[nodiscard]] const T* GetDirectory() const noexcept;
+	};
+
+
+	/*
+	* @brief Do not instantiate this class directly. Use Image::Resources() instead!
+	*/
+	class _Resources
+	{
+	private:
+		Image* m_image;
+
+	public:
+		_Resources(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool Present() const noexcept;
+		[[nodiscard]] std::vector<ResourceEntry> GetAll() const noexcept;
+		[[nodiscard]] std::vector<ResourceEntry> GetByType(WORD type_id) const noexcept;
+		[[nodiscard]] std::vector<WORD> GetTypeIds() const noexcept;
+		[[nodiscard]] size_t Count() const noexcept;
+
+		[[nodiscard]] std::optional<VersionInfo> GetVersionInfo() const noexcept;
+		[[nodiscard]] std::string_view GetManifest() const noexcept;
+		[[nodiscard]] std::vector<BYTE> GetResourceData(const ResourceEntry& entry) const noexcept;
+
+		[[nodiscard]] const IMAGE_RESOURCE_DIRECTORY* GetRootDirectory() const noexcept;
+
+		[[nodiscard]] static std::string_view TypeToString(WORD type_id) noexcept;
+	};
+
+
+	/*
+	* @brief Do not instantiate this class directly. Use Image::RichHeader() instead!
+	*/
+	class _RichHeader
+	{
+	private:
+		Image* m_image;
+
+	public:
+		_RichHeader(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool Present() const noexcept;
+		[[nodiscard]] std::vector<RichEntry> GetEntries() const noexcept;
+		[[nodiscard]] DWORD GetChecksum() const noexcept;
+		[[nodiscard]] bool ValidateChecksum() const noexcept;
+		[[nodiscard]] DWORD GetRawOffset() const noexcept;
+		[[nodiscard]] DWORD GetRawSize() const noexcept;
+
+		[[nodiscard]] static std::string_view ProductIdToString(WORD product_id) noexcept;
+	};
+
+
 	/*
 	* @brief Represents a PE image
 	*/
@@ -345,7 +770,14 @@ namespace PE
 		[[nodiscard]] __forceinline constexpr bool IsPE32() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
 		[[nodiscard]] __forceinline constexpr bool IsPE64() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
 
+		_RichHeader RichHeader() noexcept { return _RichHeader(this); }
+		_Relocations  Relocations() noexcept { return _Relocations(this); }
+		_TLS          TLS() noexcept { return _TLS(this); }
+		_Resources    Resources() noexcept { return _Resources(this); }
+		_Exports        Exports() noexcept { return _Exports(this); }
+		_Imports        Imports() noexcept { return _Imports(this); }
 		_Sections		Sections() noexcept { return _Sections(this); }
+		_DataDirectory  DataDirectory() noexcept { return _DataDirectory(this); }
 		_DosHeader		DosHeader() noexcept { return _DosHeader(this); }
 		_NtHeaders	    NtHeaders() noexcept { return _NtHeaders(this); }
 		_OptionalHeader OptionalHeader() noexcept { return _OptionalHeader(this); }
@@ -360,16 +792,25 @@ namespace PE
 		inline bool ValidateImage() noexcept
 		{
 			if (m_data.empty())
+			{
 				return false;
+			}
+
 
 			if (!DosHeader().Validate(m_data))
+			{
 				return false;
+			}
 
 			if (!NtHeaders().Validate(m_data))
+			{
 				return false;
+			}
 
 			if (!OptionalHeader().Validate(m_data))
+			{
 				return false;
+			}
 
 			auto dos = DosHeader().Get();
 			if (dos)
@@ -382,7 +823,10 @@ namespace PE
 			}
 
 			if (!Sections().Validate(m_data))
+			{
 				return false;
+			}
+
 
 			m_valid = true;
 			return true;
