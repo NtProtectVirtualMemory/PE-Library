@@ -331,7 +331,8 @@ int main(int argc, char* argv[]) {
 	{
 		printf("Rich Header found!\n");
 		printf("  Offset:   0x%08X\n", image.RichHeader().GetRawOffset());
-		printf("  Size:     0x%08X\n", image.RichHeader().GetRawSize());
+		printf("  Size:     0x%08X (Rich Structure)\n", image.RichHeader().GetRawSize(false));
+		printf("  Size:     0x%08X (DOS Stub region)\n", image.RichHeader().GetRawSize(true));
 		printf("  Checksum: 0x%08X\n", image.RichHeader().GetChecksum());
 		printf("  Valid:    %s\n\n", image.RichHeader().ValidateChecksum() ? "Yes" : "No");
 

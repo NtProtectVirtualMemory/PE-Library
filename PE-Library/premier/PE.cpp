@@ -1184,12 +1184,12 @@ bool PE::_RichHeader::Present() const noexcept
 		return false;
 
 	const BYTE* data = m_image->Data().data();
-	size_t pe_offset = dos->e_lfanew;
+	size_t nt_offset = dos->e_lfanew;
 
-	if (pe_offset < sizeof(IMAGE_DOS_HEADER) + 8)
+	if (nt_offset < sizeof(IMAGE_DOS_HEADER) + 8)
 		return false;
 
-	const DWORD* search = reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
+	const DWORD* search = reinterpret_cast<const DWORD*>(data + nt_offset - sizeof(DWORD));
 	const DWORD* search_end = reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
 
 	while (search > search_end)
@@ -1205,17 +1205,21 @@ bool PE::_RichHeader::Present() const noexcept
 DWORD PE::_RichHeader::GetRawOffset() const noexcept
 {
 	if (!Present())
+	{
 		return 0;
+	}
 
 	auto dos = m_image->DosHeader().Get();
 	if (!dos)
+	{
 		return 0;
+	}
 
 	const BYTE* data = m_image->Data().data();
-	size_t pe_offset = dos->e_lfanew;
+	size_t nt_offset = dos->e_lfanew;
 
 	const DWORD* search =
-		reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
+		reinterpret_cast<const DWORD*>(data + nt_offset - sizeof(DWORD));
 	const DWORD* search_end =
 		reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
 
@@ -1232,7 +1236,9 @@ DWORD PE::_RichHeader::GetRawOffset() const noexcept
 	}
 
 	if (!rich_ptr)
+	{
 		return 0;
+	}
 
 	DWORD checksum = *(rich_ptr + 1);
 
@@ -1250,25 +1256,25 @@ DWORD PE::_RichHeader::GetRawOffset() const noexcept
 	return 0;
 }
 
-DWORD PE::_RichHeader::GetRawSize() const noexcept
+DWORD PE::_RichHeader::GetRawSize(bool region_size) const noexcept
 {
-	DWORD start_offset = GetRawOffset() - 8; // Include DANS header by subtracting 8 bytes
-	if (!start_offset)
-		return 0;
-
 	auto dos = m_image->DosHeader().Get();
 	if (!dos)
+	{
 		return 0;
+	}
 
-	const BYTE* data = m_image->Data().data();
-	size_t pe_offset = dos->e_lfanew;
+	const std::vector<BYTE>& image = m_image->Data();
+	const BYTE* data = image.data();
 
-	DWORD checksum = GetChecksum();
-	if (!checksum)
+	size_t nt_offset = dos->e_lfanew;
+	if (nt_offset < sizeof(IMAGE_DOS_HEADER) || nt_offset > image.size())
+	{
 		return 0;
+	}
 
 	const DWORD* search =
-		reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
+		reinterpret_cast<const DWORD*>(data + nt_offset - sizeof(DWORD));
 	const DWORD* search_end =
 		reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
 
@@ -1278,24 +1284,52 @@ DWORD PE::_RichHeader::GetRawSize() const noexcept
 	{
 		if (*search == RICH_SIGNATURE)
 		{
-			if (*(search + 1) == checksum)
-			{
-				rich_ptr = search;
-				break;
-			}
+			rich_ptr = search;
+			break;
 		}
 		--search;
 	}
 
 	if (!rich_ptr)
+	{
 		return 0;
+	}
 
-	DWORD rich_offset =
-		static_cast<DWORD>(reinterpret_cast<const BYTE*>(rich_ptr) - data);
+	DWORD checksum = *(rich_ptr + 1);
 
-	return (rich_offset + 8) - start_offset; 
+	const BYTE* rich_byte = reinterpret_cast<const BYTE*>(rich_ptr);
+	const BYTE* dans_ptr = nullptr;
+
+	for (size_t off = (rich_byte - data) - 4; off >= 4; --off)
+	{
+		DWORD v;
+		memcpy(&v, data + off - 4, sizeof(DWORD));
+		v ^= checksum;
+
+		if (v == DANS_SIGNATURE)
+		{
+			dans_ptr = data + off - 4;
+			break;
+		}
+	}
+
+	if (!dans_ptr)
+	{
+		return 0;
+	}
+
+	DWORD dans_offset = static_cast<DWORD>(dans_ptr - data);
+
+	DWORD rich_size =
+		static_cast<DWORD>((rich_byte + 8) - dans_ptr);
+
+	if (!region_size)
+	{
+		return rich_size;
+	}
+
+	return static_cast<DWORD>(nt_offset) - dans_offset;
 }
-
 
 
 DWORD PE::_RichHeader::GetChecksum() const noexcept
@@ -1308,9 +1342,9 @@ DWORD PE::_RichHeader::GetChecksum() const noexcept
 		return 0;
 
 	const BYTE* data = m_image->Data().data();
-	size_t pe_offset = dos->e_lfanew;
+	size_t nt_offset = dos->e_lfanew;
 
-	const DWORD* search = reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
+	const DWORD* search = reinterpret_cast<const DWORD*>(data + nt_offset - sizeof(DWORD));
 	const DWORD* search_end = reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
 
 	while (search > search_end)
@@ -1345,9 +1379,9 @@ std::vector<RichEntry> PE::_RichHeader::GetEntries() const noexcept
 		return entries;
 
 	const BYTE* data = m_image->Data().data();
-	size_t pe_offset = dos->e_lfanew;
+	size_t nt_offset = dos->e_lfanew;
 
-	const DWORD* search = reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
+	const DWORD* search = reinterpret_cast<const DWORD*>(data + nt_offset - sizeof(DWORD));
 	const DWORD* search_end = reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
 	const DWORD* rich_ptr = nullptr;
 

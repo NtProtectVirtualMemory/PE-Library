@@ -760,7 +760,12 @@ namespace PE
 		[[nodiscard]] DWORD GetChecksum() const noexcept;
 		[[nodiscard]] bool ValidateChecksum() const noexcept;
 		[[nodiscard]] DWORD GetRawOffset() const noexcept;
-		[[nodiscard]] DWORD GetRawSize() const noexcept;
+
+		/** @brief Get the raw size of the Rich header
+		* @param region_size if true, it returns the DOS stub, otherwise only the Rich header size
+		* @return The raw size of the Rich header
+		*/
+		[[nodiscard]] DWORD GetRawSize(bool region_size) const noexcept;
 
 		[[nodiscard]] static std::string_view ProductIdToString(WORD product_id) noexcept;
 	};
