@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
 		printf("No imports found.\n");
 	}
 
-	printf("\Displaying Exports\n");
+	printf("\nDisplaying Exports\n");
 	if (image.Exports().Present())
 	{
 		printf("Module name: %s\n", image.Exports().ModuleName().data());
@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
 	}
 	else
 	{
-		printf("No exports found (No Worries, this is normal for .exe's )\n");
+		printf("No exports found (No Worries, this is normal)\n");
 	}
 
 	// Display Relocations

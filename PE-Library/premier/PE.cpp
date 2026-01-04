@@ -251,12 +251,6 @@ inline const IMAGE_DATA_DIRECTORY* PE::_DataDirectory::Get(WORD index) const noe
 	return nullptr;
 }
 
-inline bool PE::_DataDirectory::Exists(WORD index) const noexcept
-{
-	auto dir = Get(index);
-	return dir && dir->VirtualAddress != 0 && dir->Size != 0;
-}
-
 inline DWORD PE::_DataDirectory::RvaToOffset(DWORD rva) const noexcept
 {
 	if (!m_image)
@@ -411,38 +405,6 @@ DWORD PE::_DataDirectory::OffsetToRva(DWORD file_offset) const noexcept
 
 // IMPORT ADDRESS TABLE
 
-bool PE::_Imports::Present() const noexcept
-{
-	if (!m_image || !m_image->IsValid())
-		return false;
-
-	return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_IMPORT);
-}
-
-const IMAGE_IMPORT_DESCRIPTOR* PE::_Imports::GetDescriptors() const noexcept
-{
-	if (!Present())
-		return nullptr;
-
-	return m_image->DataDirectory().GetData<IMAGE_IMPORT_DESCRIPTOR>(IMAGE_DIRECTORY_ENTRY_IMPORT);
-}
-
-size_t PE::_Imports::GetModuleCount() const noexcept
-{
-	auto desc = GetDescriptors();
-	if (!desc)
-		return 0;
-
-	size_t count = 0;
-	while (desc->Name != 0)
-	{
-		count++;
-		desc++;
-	}
-
-	return count;
-}
-
 std::vector<std::string_view> PE::_Imports::GetImportedModules() const noexcept
 {
 	std::vector<std::string_view> dlls;
@@ -574,63 +536,7 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 	return functions;
 }
 
-std::vector<ImportEntry> PE::_Imports::GetAllImports() const noexcept
-{
-	std::vector<ImportEntry> entries;
-
-	auto dll_names = GetImportedModules();
-	entries.reserve(dll_names.size());
-
-	for (const auto& dll : dll_names)
-	{
-		ImportEntry entry{};
-		entry.dll_name = dll;
-		entry.functions = FunctionFromModule(dll.data());
-		entries.push_back(std::move(entry));
-	}
-
-	return entries;
-}
-
 // EXPORTS
-
-bool PE::_Exports::Present() const noexcept
-{
-	if (!m_image || !m_image->IsValid())
-		return false;
-
-	return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_EXPORT);
-}
-
-const IMAGE_EXPORT_DIRECTORY* PE::_Exports::GetDescriptor() const noexcept
-{
-	if (!Present())
-		return nullptr;
-
-	return m_image->DataDirectory().GetData<IMAGE_EXPORT_DIRECTORY>(IMAGE_DIRECTORY_ENTRY_EXPORT);
-}
-
-std::string_view PE::_Exports::ModuleName() const noexcept
-{
-	auto exp_dir = GetDescriptor();
-	if (!exp_dir || exp_dir->Name == 0)
-		return {};
-
-	DWORD name_offset = m_image->DataDirectory().RvaToOffset(exp_dir->Name);
-	if (name_offset == 0 || name_offset >= m_image->Data().size())
-		return {};
-
-	return reinterpret_cast<const char*>(m_image->Data().data() + name_offset);
-}
-
-size_t PE::_Exports::Count() const noexcept
-{
-	auto exp_dir = GetDescriptor();
-	if (!exp_dir)
-		return 0;
-
-	return exp_dir->NumberOfFunctions;
-}
 
 std::vector<ExportFunction> PE::_Exports::All() const noexcept
 {
@@ -730,60 +636,7 @@ std::vector<ExportFunction> PE::_Exports::All() const noexcept
 	return exports;
 }
 
-ExportFunction PE::_Exports::ByName(const char* name) const noexcept
-{
-	ExportFunction empty{};
-
-	if (!name)
-		return empty;
-
-	auto all = All();
-	for (const auto& exp : all)
-	{
-		if (!exp.name.empty() && _stricmp(exp.name.data(), name) == 0)
-		{
-			return exp;
-		}
-	}
-
-	return empty;
-}
-
-ExportFunction PE::_Exports::ByOrdinal(WORD ordinal) const noexcept
-{
-	ExportFunction empty{};
-
-	auto all = All();
-	for (const auto& exp : all)
-	{
-		if (exp.ordinal == ordinal)
-		{
-			return exp;
-		}
-	}
-
-	return empty;
-}
-
-
 // RELOCATIONS
-
-
-bool PE::_Relocations::Present() const noexcept
-{
-	if (!m_image || !m_image->IsValid())
-		return false;
-
-	return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_BASERELOC);
-}
-
-const IMAGE_BASE_RELOCATION* PE::_Relocations::GetRawTable() const noexcept
-{
-	if (!Present())
-		return nullptr;
-
-	return m_image->DataDirectory().GetData<IMAGE_BASE_RELOCATION>(IMAGE_DIRECTORY_ENTRY_BASERELOC);
-}
 
 std::vector<RelocationBlock> PE::_Relocations::GetBlocks() const noexcept
 {
@@ -875,39 +728,6 @@ std::vector<RelocationEntry> PE::_Relocations::GetAllEntries() const noexcept
 	return all_entries;
 }
 
-size_t PE::_Relocations::Count() const noexcept
-{
-	size_t count = 0;
-	auto blocks = GetBlocks();
-
-	for (const auto& block : blocks)
-		count += block.entries.size();
-
-	return count;
-}
-
-std::string_view PE::_Relocations::TypeToString(WORD type) noexcept
-{
-	switch (type)
-	{
-	case IMAGE_REL_BASED_ABSOLUTE:
-		return "ABSOLUTE";
-	case IMAGE_REL_BASED_HIGH:
-		return "HIGH";
-	case IMAGE_REL_BASED_LOW:
-		return "LOW";
-	case IMAGE_REL_BASED_HIGHLOW:
-		return "HIGHLOW";
-	case IMAGE_REL_BASED_HIGHADJ:
-		return "HIGHADJ";
-	case IMAGE_REL_BASED_DIR64:
-		return "DIR64";
-	default:
-		return "UNKNOWN";
-	}
-}
-
-
 // TLS
 
 
@@ -933,19 +753,6 @@ const IMAGE_TLS_DIRECTORY64* PE::_TLS::GetDirectory64() const noexcept
 		return nullptr;
 
 	return m_image->DataDirectory().GetData<IMAGE_TLS_DIRECTORY64>(IMAGE_DIRECTORY_ENTRY_TLS);
-}
-
-template<typename T>
-const T* PE::_TLS::GetDirectory() const noexcept
-{
-	static_assert(std::is_same_v<T, IMAGE_TLS_DIRECTORY32> ||
-		std::is_same_v<T, IMAGE_TLS_DIRECTORY64>,
-		"T must be IMAGE_TLS_DIRECTORY32 or IMAGE_TLS_DIRECTORY64");
-
-	if constexpr (std::is_same_v<T, IMAGE_TLS_DIRECTORY32>)
-		return GetDirectory32();
-	else
-		return GetDirectory64();
 }
 
 template const IMAGE_TLS_DIRECTORY32* PE::_TLS::GetDirectory<IMAGE_TLS_DIRECTORY32>() const noexcept;
@@ -1056,11 +863,6 @@ std::vector<TLSCallback> PE::_TLS::GetCallbacks() const noexcept
 	return callbacks;
 }
 
-size_t PE::_TLS::CallbackCount() const noexcept
-{
-	return GetCallbacks().size();
-}
-
 bool PE::_TLS::HasCallbacks() const noexcept
 {
 	if (!Present())
@@ -1094,61 +896,7 @@ bool PE::_TLS::HasCallbacks() const noexcept
 	}
 }
 
-
-bool PE::_Resources::Present() const noexcept
-{
-	if (!m_image || !m_image->IsValid())
-		return false;
-
-	return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_RESOURCE);
-}
-
-const IMAGE_RESOURCE_DIRECTORY* PE::_Resources::GetRootDirectory() const noexcept
-{
-	if (!Present())
-		return nullptr;
-
-	return m_image->DataDirectory().GetData<IMAGE_RESOURCE_DIRECTORY>(IMAGE_DIRECTORY_ENTRY_RESOURCE);
-}
-
-std::string_view PE::_Resources::TypeToString(WORD type_id) noexcept
-{
-	switch (type_id)
-	{
-	case RT_CURSOR:
-		return "CURSOR";
-	case RT_BITMAP:
-		return "BITMAP";
-	case RT_ICON:
-		return "ICON";
-	case RT_MENU:
-		return "MENU";
-	case RT_DIALOG:
-		return "DIALOG";
-	case RT_STRING:
-		return "STRING";
-	case RT_FONTDIR:
-		return "FONTDIR";
-	case RT_FONT:
-		return "FONT";
-	case RT_ACCELERATOR:
-		return "ACCELERATOR";
-	case RT_RCDATA:
-		return "RCDATA";
-	case RT_MESSAGETABLE:
-		return "MESSAGETABLE";
-	case RT_GROUP_CURSOR:
-		return "GROUP_CURSOR";
-	case RT_GROUP_ICON:
-		return "GROUP_ICON";
-	case RT_VERSION:
-		return "VERSION";
-	case RT_MANIFEST:
-		return "MANIFEST";
-	default:
-		return "UNKNOWN";
-	}
-}
+// RESOURCES
 
 std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 {
@@ -1292,22 +1040,6 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 	return entries;
 }
 
-std::vector<ResourceEntry> PE::_Resources::GetByType(WORD type_id) const noexcept
-{
-	std::vector<ResourceEntry> filtered;
-
-	auto all = GetAll();
-	for (auto& entry : all)
-	{
-		if (entry.type_id == type_id)
-		{
-			filtered.push_back(std::move(entry));
-		}
-	}
-
-	return filtered;
-}
-
 std::vector<WORD> PE::_Resources::GetTypeIds() const noexcept
 {
 	std::vector<WORD> types;
@@ -1400,7 +1132,6 @@ std::optional<VersionInfo> PE::_Resources::GetVersionInfo() const noexcept
 	const BYTE* version_data = m_image->Data().data() + version_entry.file_offset;
 
 	constexpr DWORD VS_FFI_SIGNATURE = 0xFEEF04BD; //Had to Research this //https://crashpad.chromium.org/doxygen/verrsrc_8h.html#a323849bf0740c974e68b19ae551e1a18
-
 	const DWORD* search_ptr = reinterpret_cast<const DWORD*>(version_data);
 	const DWORD* search_end = reinterpret_cast<const DWORD*>(version_data + version_entry.data_size - sizeof(DWORD) * 13);
 
@@ -1482,13 +1213,12 @@ DWORD PE::_RichHeader::GetRawOffset() const noexcept
 
 	const BYTE* data = m_image->Data().data();
 	size_t pe_offset = dos->e_lfanew;
-	DWORD checksum = GetChecksum();
 
-	if (checksum == 0)
-		return 0;
+	const DWORD* search =
+		reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
+	const DWORD* search_end =
+		reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
 
-	const DWORD* search = reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
-	const DWORD* search_end = reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
 	const DWORD* rich_ptr = nullptr;
 
 	while (search > search_end)
@@ -1498,20 +1228,23 @@ DWORD PE::_RichHeader::GetRawOffset() const noexcept
 			rich_ptr = search;
 			break;
 		}
-		search--;
+		--search;
 	}
 
 	if (!rich_ptr)
 		return 0;
+
+	DWORD checksum = *(rich_ptr + 1);
 
 	const DWORD* scan = rich_ptr - 1;
 	while (scan > search_end)
 	{
 		if ((*scan ^ checksum) == DANS_SIGNATURE)
 		{
-			return static_cast<DWORD>(reinterpret_cast<const BYTE*>(scan) - data);
+			return static_cast<DWORD>(
+				reinterpret_cast<const BYTE*>(scan) - data);
 		}
-		scan--;
+		--scan;
 	}
 
 	return 0;
@@ -1519,35 +1252,51 @@ DWORD PE::_RichHeader::GetRawOffset() const noexcept
 
 DWORD PE::_RichHeader::GetRawSize() const noexcept
 {
-	if (!Present())
+	DWORD start_offset = GetRawOffset() - 8; // Include DANS header by subtracting 8 bytes
+	if (!start_offset)
 		return 0;
 
 	auto dos = m_image->DosHeader().Get();
 	if (!dos)
 		return 0;
 
-	DWORD start_offset = GetRawOffset();
-	if (start_offset == 0)
-		return 0;
-
 	const BYTE* data = m_image->Data().data();
 	size_t pe_offset = dos->e_lfanew;
 
-	const DWORD* search = reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
-	const DWORD* search_end = reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
+	DWORD checksum = GetChecksum();
+	if (!checksum)
+		return 0;
+
+	const DWORD* search =
+		reinterpret_cast<const DWORD*>(data + pe_offset - sizeof(DWORD));
+	const DWORD* search_end =
+		reinterpret_cast<const DWORD*>(data + sizeof(IMAGE_DOS_HEADER));
+
+	const DWORD* rich_ptr = nullptr;
 
 	while (search > search_end)
 	{
 		if (*search == RICH_SIGNATURE)
 		{
-			DWORD rich_offset = static_cast<DWORD>(reinterpret_cast<const BYTE*>(search) - data);
-			return (rich_offset + 8) - start_offset;
+			if (*(search + 1) == checksum)
+			{
+				rich_ptr = search;
+				break;
+			}
 		}
-		search--;
+		--search;
 	}
 
-	return 0;
+	if (!rich_ptr)
+		return 0;
+
+	DWORD rich_offset =
+		static_cast<DWORD>(reinterpret_cast<const BYTE*>(rich_ptr) - data);
+
+	return (rich_offset + 8) - start_offset; 
 }
+
+
 
 DWORD PE::_RichHeader::GetChecksum() const noexcept
 {
@@ -1677,8 +1426,7 @@ bool PE::_RichHeader::ValidateChecksum() const noexcept
 	for (const auto& entry : entries)
 	{
 		DWORD comp_id = (static_cast<DWORD>(entry.product_id) << 16) | entry.build_id;
-		DWORD rot = comp_id % 32;
-		DWORD count = entry.use_count;
+		DWORD rot = entry.use_count % 32; 
 		calc_checksum += (comp_id << rot) | (comp_id >> (32 - rot));
 	}
 

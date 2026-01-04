@@ -204,7 +204,7 @@ struct RelocationBlock
 };
 
 
-//The Structures below correspond the class _Imports
+//The Structures below correspond the class _Exports
 
 struct ExportFunction
 {
@@ -690,21 +690,31 @@ namespace PE
 	{
 	private:
 		Image* m_image;
+		[[nodiscard]] const IMAGE_TLS_DIRECTORY32* GetDirectory32() const noexcept;
+		[[nodiscard]] const IMAGE_TLS_DIRECTORY64* GetDirectory64() const noexcept;
 
 	public:
 		_TLS(Image* image) : m_image(image) {}
 
+		[[nodiscard]] size_t CallbackCount() const noexcept { return GetCallbacks().size(); }
+
 		[[nodiscard]] bool Present() const noexcept;
 		[[nodiscard]] TLSInfo GetInfo() const noexcept;
 		[[nodiscard]] std::vector<TLSCallback> GetCallbacks() const noexcept;
-		[[nodiscard]] size_t CallbackCount() const noexcept;
 		[[nodiscard]] bool HasCallbacks() const noexcept;
 
-		[[nodiscard]] const IMAGE_TLS_DIRECTORY32* GetDirectory32() const noexcept;
-		[[nodiscard]] const IMAGE_TLS_DIRECTORY64* GetDirectory64() const noexcept;
-
 		template<typename T>
-		[[nodiscard]] const T* GetDirectory() const noexcept;
+		[[nodiscard]] inline const T* GetDirectory() const noexcept
+		{
+			static_assert(std::is_same_v<T, IMAGE_TLS_DIRECTORY32> ||
+				std::is_same_v<T, IMAGE_TLS_DIRECTORY64>,
+				"T must be IMAGE_TLS_DIRECTORY32 or IMAGE_TLS_DIRECTORY64");
+
+			if constexpr (std::is_same_v<T, IMAGE_TLS_DIRECTORY32>)
+				return GetDirectory32();
+			else
+				return GetDirectory64();
+		}
 	};
 
 
@@ -921,6 +931,248 @@ namespace PE
 		}
 
 		return nullptr;
+	}
+
+	// Data Directory
+
+	inline bool PE::_DataDirectory::Exists(WORD index) const noexcept
+	{
+		auto dir = Get(index);
+		return dir && dir->VirtualAddress != 0 && dir->Size != 0;
+	}
+
+	// Imports
+
+	inline bool PE::_Imports::Present() const noexcept
+	{
+		if (!m_image || !m_image->IsValid())
+			return false;
+
+		return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_IMPORT);
+	}
+
+	inline const IMAGE_IMPORT_DESCRIPTOR* PE::_Imports::GetDescriptors() const noexcept
+	{
+		if (!Present())
+			return nullptr;
+
+		return m_image->DataDirectory().GetData<IMAGE_IMPORT_DESCRIPTOR>(IMAGE_DIRECTORY_ENTRY_IMPORT);
+	}
+
+	inline size_t PE::_Imports::GetModuleCount() const noexcept
+	{
+		auto desc = GetDescriptors();
+		if (!desc)
+			return 0;
+
+		size_t count = 0;
+		while (desc->Name != 0)
+		{
+			count++;
+			desc++;
+		}
+
+		return count;
+	}
+
+	inline std::vector<ImportEntry> PE::_Imports::GetAllImports() const noexcept
+	{
+		std::vector<ImportEntry> entries;
+
+		auto dll_names = GetImportedModules();
+		entries.reserve(dll_names.size());
+
+		for (const auto& dll : dll_names)
+		{
+			ImportEntry entry{};
+			entry.dll_name = dll;
+			entry.functions = FunctionFromModule(dll.data());
+			entries.push_back(std::move(entry));
+		}
+
+		return entries;
+	}
+
+	// Exports
+
+	inline bool PE::_Exports::Present() const noexcept
+	{
+		if (!m_image || !m_image->IsValid())
+			return false;
+
+		return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_EXPORT);
+	}
+
+	inline const IMAGE_EXPORT_DIRECTORY* PE::_Exports::GetDescriptor() const noexcept
+	{
+		if (!Present())
+			return nullptr;
+
+		return m_image->DataDirectory().GetData<IMAGE_EXPORT_DIRECTORY>(IMAGE_DIRECTORY_ENTRY_EXPORT);
+	}
+
+	inline std::string_view PE::_Exports::ModuleName() const noexcept
+	{
+		auto exp_dir = GetDescriptor();
+		if (!exp_dir || exp_dir->Name == 0)
+			return {};
+
+		DWORD name_offset = m_image->DataDirectory().RvaToOffset(exp_dir->Name);
+		if (name_offset == 0 || name_offset >= m_image->Data().size())
+			return {};
+
+		return reinterpret_cast<const char*>(m_image->Data().data() + name_offset);
+	}
+
+	inline size_t PE::_Exports::Count() const noexcept
+	{
+		auto exp_dir = GetDescriptor();
+		if (!exp_dir)
+			return 0;
+
+		return exp_dir->NumberOfFunctions;
+	}
+
+	inline ExportFunction PE::_Exports::ByName(const char* name) const noexcept
+	{
+		ExportFunction empty{};
+
+		if (!name)
+			return empty;
+
+		auto all = All();
+		for (const auto& exp : all)
+		{
+			if (!exp.name.empty() && _stricmp(exp.name.data(), name) == 0)
+			{
+				return exp;
+			}
+		}
+
+		return empty;
+	}
+
+	// Relocations
+
+	inline bool PE::_Relocations::Present() const noexcept
+	{
+		if (!m_image || !m_image->IsValid())
+			return false;
+
+		return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_BASERELOC);
+	}
+
+	inline const IMAGE_BASE_RELOCATION* PE::_Relocations::GetRawTable() const noexcept
+	{
+		if (!Present())
+			return nullptr;
+
+		return m_image->DataDirectory().GetData<IMAGE_BASE_RELOCATION>(IMAGE_DIRECTORY_ENTRY_BASERELOC);
+	}
+
+	inline size_t PE::_Relocations::Count() const noexcept
+	{
+		size_t count = 0;
+		auto blocks = GetBlocks();
+
+		for (const auto& block : blocks)
+			count += block.entries.size();
+
+		return count;
+	}
+
+	inline std::string_view PE::_Relocations::TypeToString(WORD type) noexcept
+	{
+		switch (type)
+		{
+		case IMAGE_REL_BASED_ABSOLUTE:
+			return "ABSOLUTE";
+		case IMAGE_REL_BASED_HIGH:
+			return "HIGH";
+		case IMAGE_REL_BASED_LOW:
+			return "LOW";
+		case IMAGE_REL_BASED_HIGHLOW:
+			return "HIGHLOW";
+		case IMAGE_REL_BASED_HIGHADJ:
+			return "HIGHADJ";
+		case IMAGE_REL_BASED_DIR64:
+			return "DIR64";
+		default:
+			return "UNKNOWN";
+		}
+	}
+
+	// Resources
+
+	inline bool PE::_Resources::Present() const noexcept
+	{
+		if (!m_image || !m_image->IsValid())
+			return false;
+
+		return m_image->DataDirectory().Exists(IMAGE_DIRECTORY_ENTRY_RESOURCE);
+	}
+
+	inline const IMAGE_RESOURCE_DIRECTORY* PE::_Resources::GetRootDirectory() const noexcept
+	{
+		if (!Present())
+			return nullptr;
+
+		return m_image->DataDirectory().GetData<IMAGE_RESOURCE_DIRECTORY>(IMAGE_DIRECTORY_ENTRY_RESOURCE);
+	}
+
+	inline std::string_view PE::_Resources::TypeToString(WORD type_id) noexcept
+	{
+		switch (type_id)
+		{
+		case RT_CURSOR:
+			return "CURSOR";
+		case RT_BITMAP:
+			return "BITMAP";
+		case RT_ICON:
+			return "ICON";
+		case RT_MENU:
+			return "MENU";
+		case RT_DIALOG:
+			return "DIALOG";
+		case RT_STRING:
+			return "STRING";
+		case RT_FONTDIR:
+			return "FONTDIR";
+		case RT_FONT:
+			return "FONT";
+		case RT_ACCELERATOR:
+			return "ACCELERATOR";
+		case RT_RCDATA:
+			return "RCDATA";
+		case RT_MESSAGETABLE:
+			return "MESSAGETABLE";
+		case RT_GROUP_CURSOR:
+			return "GROUP_CURSOR";
+		case RT_GROUP_ICON:
+			return "GROUP_ICON";
+		case RT_VERSION:
+			return "VERSION";
+		case RT_MANIFEST:
+			return "MANIFEST";
+		default:
+			return "UNKNOWN";
+		}
+	}
+
+	inline std::vector<ResourceEntry> PE::_Resources::GetByType(WORD type_id) const noexcept
+	{
+		std::vector<ResourceEntry> filtered;
+
+		auto all = GetAll();
+		for (auto& entry : all)
+		{
+			if (entry.type_id == type_id)
+			{
+				filtered.push_back(std::move(entry));
+			}
+		}
+
+		return filtered;
 	}
 
 } // namespace PE
