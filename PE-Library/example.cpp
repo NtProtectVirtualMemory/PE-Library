@@ -352,6 +352,23 @@ int main(int argc, char* argv[]) {
 		printf("No Rich Header found (may be stripped or non-MSVC build).\n");
 	}
 
+	// Getting strings
+
+	auto ascii_strings = image.Utils().GetAsciiStrings(3);
+	auto unicode_strings = image.Utils().GetUnicodeStrings(5);
+
+	printf("\nFound %zu ASCII strings (min length 3)\n", ascii_strings.size());
+	for (const auto& str : ascii_strings)
+	{
+		printf("  %.*s\n", static_cast<int>(str.size()), str.data());
+	}
+
+	printf("\nFound %zu Unicode strings (min length 5)\n", unicode_strings.size());
+	for (const auto& str : unicode_strings)
+	{
+		printf("  %.*S\n", static_cast<int>(str.size()), str.data());
+	}
+
 	printf("\n");
 	system("pause");
 	return EXIT_SUCCESS;

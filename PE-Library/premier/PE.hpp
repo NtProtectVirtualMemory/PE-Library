@@ -589,6 +589,7 @@ namespace PE
 		Image* m_image;
 		WORD m_number_of_sections = 0;
 		const IMAGE_SECTION_HEADER* m_sections = nullptr;
+
 		friend class Image;
 		[[nodiscard]] bool Validate(const std::vector<BYTE>& data) noexcept;
 
@@ -614,9 +615,6 @@ namespace PE
 		template<typename T>
 		[[nodiscard]] const T* GetData(WORD index) const noexcept;
 		[[nodiscard]] bool Exists(WORD index) const noexcept;
-		[[nodiscard]] DWORD RvaToOffset(DWORD rva) const noexcept;
-		[[nodiscard]] DWORD VaToRva(ULONGLONG va) const noexcept;
-		[[nodiscard]] DWORD OffsetToRva(DWORD file_offset) const noexcept;
 	};
 
 
@@ -695,12 +693,11 @@ namespace PE
 	public:
 		_TLS(Image* image) : m_image(image) {}
 
-		[[nodiscard]] size_t CallbackCount() const noexcept { return GetCallbacks().size(); }
-
 		[[nodiscard]] bool Present() const noexcept;
 		[[nodiscard]] TLSInfo GetInfo() const noexcept;
 		[[nodiscard]] std::vector<TLSCallback> GetCallbacks() const noexcept;
 		[[nodiscard]] bool HasCallbacks() const noexcept;
+		[[nodiscard]] constexpr size_t CallbackCount() const noexcept { return GetCallbacks().size(); }
 
 		template<typename T>
 		[[nodiscard]] inline const T* GetDirectory() const noexcept
@@ -739,7 +736,6 @@ namespace PE
 		[[nodiscard]] std::vector<BYTE> GetResourceData(const ResourceEntry& entry) const noexcept;
 
 		[[nodiscard]] const IMAGE_RESOURCE_DIRECTORY* GetRootDirectory() const noexcept;
-
 		[[nodiscard]] static std::string_view TypeToString(WORD type_id) noexcept;
 	};
 
@@ -769,6 +765,26 @@ namespace PE
 
 		[[nodiscard]] static std::string_view ProductIdToString(WORD product_id) noexcept;
 	};
+	
+	/*
+	* @brief Do not instantiate this class directly. Use Image::Utils() instead!
+	*/
+	class _Utils
+	{
+	public:
+		_Utils(Image* image) : m_image(image) {}
+
+		[[nodiscard]] DWORD RvaToOffset(DWORD rva) const noexcept;
+		[[nodiscard]] DWORD VaToRva(ULONGLONG va) const noexcept;
+		[[nodiscard]] DWORD OffsetToRva(DWORD file_offset) const noexcept;
+
+		[[nodiscard]] std::vector<std::string_view>  GetAsciiStrings(DWORD min_length) const noexcept;
+		[[nodiscard]] std::vector<std::wstring_view> GetUnicodeStrings(DWORD min_length) const noexcept;
+
+	private:
+		Image* m_image;
+
+	};
 
 
 	/*
@@ -784,10 +800,10 @@ namespace PE
 		[[nodiscard]] __forceinline constexpr bool IsPE32() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
 		[[nodiscard]] __forceinline constexpr bool IsPE64() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
 
-		_RichHeader RichHeader() noexcept { return _RichHeader(this); }
-		_Relocations  Relocations() noexcept { return _Relocations(this); }
-		_TLS          TLS() noexcept { return _TLS(this); }
-		_Resources    Resources() noexcept { return _Resources(this); }
+		_RichHeader     RichHeader() noexcept { return _RichHeader(this); }
+		_Relocations    Relocations() noexcept { return _Relocations(this); }
+		_TLS            TLS() noexcept { return _TLS(this); }
+		_Resources      Resources() noexcept { return _Resources(this); }
 		_Exports        Exports() noexcept { return _Exports(this); }
 		_Imports        Imports() noexcept { return _Imports(this); }
 		_Sections		Sections() noexcept { return _Sections(this); }
@@ -795,6 +811,7 @@ namespace PE
 		_DosHeader		DosHeader() noexcept { return _DosHeader(this); }
 		_NtHeaders	    NtHeaders() noexcept { return _NtHeaders(this); }
 		_OptionalHeader OptionalHeader() noexcept { return _OptionalHeader(this); }
+		_Utils          Utils() noexcept { return _Utils(this); }
 
 		const std::vector<BYTE>& Data() const noexcept { return m_data; }
 
@@ -1021,7 +1038,7 @@ namespace PE
 		if (!exp_dir || exp_dir->Name == 0)
 			return {};
 
-		DWORD name_offset = m_image->DataDirectory().RvaToOffset(exp_dir->Name);
+		DWORD name_offset = m_image->Utils().RvaToOffset(exp_dir->Name);
 		if (name_offset == 0 || name_offset >= m_image->Data().size())
 			return {};
 
