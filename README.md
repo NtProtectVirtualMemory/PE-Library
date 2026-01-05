@@ -26,7 +26,7 @@ The Following Features this Library currently offers will be listed below
 
 ```
 PE Library/
-├── SDK/
+├── premier/
 │   ├── PE.hpp              # Main library header
 │   ├── PE.cpp              # Main library implementation
 └── example.cpp             # Usage examples
