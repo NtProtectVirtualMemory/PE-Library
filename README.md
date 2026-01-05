@@ -19,6 +19,7 @@ The Following Features this Library currently offers will be listed below
 - Resource tree parsing with version info and manifest extraction
 - Rich header parsing with checksum validation and tool identification
 - RVA, VA, and file offset conversion utilities
+- Unicode and ASCII String extraction
 
 ```
 
