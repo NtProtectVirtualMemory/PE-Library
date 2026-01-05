@@ -72,6 +72,7 @@ constexpr WORD	IMAGE_DOS_SIGNATURE = 0x5A4D; // MZ
 constexpr DWORD IMAGE_NT_SIGNATURE = 0x00004550; // PE\0\0
 constexpr WORD	IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10b; // PE32
 constexpr WORD	IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20b; // PE32+ (64-bit)
+constexpr DWORD IMAGE_RSDS_SIGNATURE = 0x53445352; // "RSDS"
 constexpr WORD	IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16;
 
 constexpr WORD IMAGE_DIRECTORY_ENTRY_EXPORT = 0;
@@ -89,6 +90,28 @@ constexpr WORD IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT = 11;
 constexpr WORD IMAGE_DIRECTORY_ENTRY_IAT = 12;
 constexpr WORD IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT = 13;
 constexpr WORD IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR = 14;
+
+constexpr WORD IMAGE_DEBUG_TYPE_UNKNOWN			= 0;
+constexpr WORD IMAGE_DEBUG_TYPE_COFF			= 1;
+constexpr WORD IMAGE_DEBUG_TYPE_CODEVIEW		= 2;
+constexpr WORD IMAGE_DEBUG_TYPE_FPO				= 3;
+constexpr WORD IMAGE_DEBUG_TYPE_MISC			= 4;
+constexpr WORD IMAGE_DEBUG_TYPE_EXCEPTION		= 5;
+constexpr WORD IMAGE_DEBUG_TYPE_FIXUP			= 6;
+constexpr WORD IMAGE_DEBUG_TYPE_OMAP_TO_SRC	    = 7;
+constexpr WORD IMAGE_DEBUG_TYPE_OMAP_FROM_SRC   = 8;
+constexpr WORD IMAGE_DEBUG_TYPE_BORLAND			= 9;
+constexpr WORD IMAGE_DEBUG_TYPE_RESERVED10		= 10;
+constexpr WORD IMAGE_DEBUG_TYPE_BBT				= IMAGE_DEBUG_TYPE_RESERVED10;
+constexpr WORD IMAGE_DEBUG_TYPE_CLSID			= 11;
+constexpr WORD IMAGE_DEBUG_TYPE_VC_FEATURE		= 12;
+constexpr WORD IMAGE_DEBUG_TYPE_POGO			= 13;
+constexpr WORD IMAGE_DEBUG_TYPE_ILTCG			= 14;
+constexpr WORD IMAGE_DEBUG_TYPE_MPX				= 15;
+constexpr WORD IMAGE_DEBUG_TYPE_REPRO			= 16;
+constexpr WORD IMAGE_DEBUG_TYPE_SPGO			= 18;
+
+constexpr WORD IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS = 20;
 
 constexpr ULONGLONG IMAGE_ORDINAL_FLAG64 = 0x8000000000000000ULL;
 constexpr DWORD     IMAGE_ORDINAL_FLAG32 = 0x80000000;
@@ -233,6 +256,15 @@ struct ImportEntry
 	std::vector<ImportFunction> functions;
 };
 
+// The Structures below correspond to the _Debug class
+
+struct DebugEntry
+{
+	WORD type;
+	DWORD size;
+	DWORD address_rva;
+	DWORD address_offset;
+};
 
 //Architecture Structure of Windows
 
@@ -491,6 +523,17 @@ typedef struct _IMAGE_TLS_DIRECTORY32 {
 	DWORD Characteristics;
 } IMAGE_TLS_DIRECTORY32, * PIMAGE_TLS_DIRECTORY32;
 
+typedef struct _IMAGE_DEBUG_DIRECTORY {
+	DWORD   Characteristics;
+	DWORD   TimeDateStamp;
+	WORD    MajorVersion;
+	WORD    MinorVersion;
+	DWORD   Type;
+	DWORD   SizeOfData;
+	DWORD   AddressOfRawData;
+	DWORD   PointerToRawData;
+} IMAGE_DEBUG_DIRECTORY, * PIMAGE_DEBUG_DIRECTORY;
+
 // Defines
 
 #ifndef FIELD_OFFSET
@@ -739,7 +782,6 @@ namespace PE
 		[[nodiscard]] static std::string_view TypeToString(WORD type_id) noexcept;
 	};
 
-
 	/*
 	* @brief Do not instantiate this class directly. Use Image::RichHeader() instead!
 	*/
@@ -762,10 +804,27 @@ namespace PE
 		* @return The raw size of the Rich header
 		*/
 		[[nodiscard]] DWORD GetRawSize(bool region_size) const noexcept;
-
 		[[nodiscard]] static std::string_view ProductIdToString(WORD product_id) noexcept;
 	};
 	
+	/*
+	* @brief Do not instantiate this class directly. Use Image::Debug() instead!
+	*/
+
+	class _Debug
+	{
+	private:
+		Image* m_image;
+	public:
+		_Debug(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool Present() const noexcept;
+		[[nodiscard]] std::vector<DebugEntry> GetAll() noexcept;
+		[[nodiscard]] DebugEntry GetByType(const WORD type_id) noexcept;
+		[[nodiscard]] std::string_view TypeToString(const WORD type_id) const noexcept;
+	};
+
+
 	/*
 	* @brief Do not instantiate this class directly. Use Image::Utils() instead!
 	*/
@@ -773,6 +832,8 @@ namespace PE
 	{
 	public:
 		_Utils(Image* image) : m_image(image) {}
+
+		[[nodiscard]] bool StripPDBInfo() const noexcept;
 
 		[[nodiscard]] DWORD RvaToOffset(DWORD rva) const noexcept;
 		[[nodiscard]] DWORD VaToRva(ULONGLONG va) const noexcept;
@@ -796,6 +857,7 @@ namespace PE
 		Image(const char* path);
 		~Image() = default;
 
+		[[nodiscard]] bool SaveImage(const char* path) const noexcept;
 		[[nodiscard]] __forceinline constexpr bool IsValid() const noexcept { return m_valid; }
 		[[nodiscard]] __forceinline constexpr bool IsPE32() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
 		[[nodiscard]] __forceinline constexpr bool IsPE64() const noexcept { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
@@ -812,13 +874,16 @@ namespace PE
 		_NtHeaders	    NtHeaders() noexcept { return _NtHeaders(this); }
 		_OptionalHeader OptionalHeader() noexcept { return _OptionalHeader(this); }
 		_Utils          Utils() noexcept { return _Utils(this); }
+		_Debug 			Debug() noexcept { return _Debug(this); }
 
-		const std::vector<BYTE>& Data() const noexcept { return m_data; }
+		[[nodiscard]] std::vector<BYTE>& MutableData() noexcept { return m_data; }
+		[[nodiscard]] const std::vector<BYTE>& Data() const noexcept { return m_data; }
 
 	private:
 		std::vector<BYTE> m_data;
 		bool m_valid = false;
 		WORD m_magic = 0;
+		const char* m_path = nullptr;
 
 		inline bool ValidateImage() noexcept
 		{
@@ -1139,45 +1204,6 @@ namespace PE
 			return nullptr;
 
 		return m_image->DataDirectory().GetData<IMAGE_RESOURCE_DIRECTORY>(IMAGE_DIRECTORY_ENTRY_RESOURCE);
-	}
-
-	inline std::string_view PE::_Resources::TypeToString(WORD type_id) noexcept
-	{
-		switch (type_id)
-		{
-		case RT_CURSOR:
-			return "CURSOR";
-		case RT_BITMAP:
-			return "BITMAP";
-		case RT_ICON:
-			return "ICON";
-		case RT_MENU:
-			return "MENU";
-		case RT_DIALOG:
-			return "DIALOG";
-		case RT_STRING:
-			return "STRING";
-		case RT_FONTDIR:
-			return "FONTDIR";
-		case RT_FONT:
-			return "FONT";
-		case RT_ACCELERATOR:
-			return "ACCELERATOR";
-		case RT_RCDATA:
-			return "RCDATA";
-		case RT_MESSAGETABLE:
-			return "MESSAGETABLE";
-		case RT_GROUP_CURSOR:
-			return "GROUP_CURSOR";
-		case RT_GROUP_ICON:
-			return "GROUP_ICON";
-		case RT_VERSION:
-			return "VERSION";
-		case RT_MANIFEST:
-			return "MANIFEST";
-		default:
-			return "UNKNOWN";
-		}
 	}
 
 	inline std::vector<ResourceEntry> PE::_Resources::GetByType(WORD type_id) const noexcept

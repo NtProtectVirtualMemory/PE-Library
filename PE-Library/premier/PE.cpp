@@ -13,6 +13,8 @@
 
 PE::Image::Image(const char* path)
 {
+	m_path = path;
+
 	FILE* file = nullptr;
 	fopen_s(&file, path, "rb");
 
@@ -30,7 +32,80 @@ PE::Image::Image(const char* path)
 	ValidateImage();
 }
 
+bool PE::Image::SaveImage(const char* path) const noexcept
+{
+	if (m_data.empty())
+	{
+		return false;
+	}
+
+	std::string backup_path = std::string(m_path) + ".bak";
+	
+	if (std::rename(m_path, backup_path.c_str())) // Returns 0 if it worked
+	{
+		return false;
+	}
+
+	FILE* file = nullptr;
+	fopen_s(&file, path, "wb");
+
+	if (!file)
+	{
+		return false;
+	}
+
+	size_t written = fwrite(m_data.data(), 1, m_data.size(), file);
+	fclose(file);
+
+	return written == m_data.size();
+}
+
 // UTILS
+
+bool PE::_Utils::StripPDBInfo() const noexcept
+{
+	if (!m_image)
+	{
+		return false;
+	}
+
+	auto cv_data = m_image->Debug().GetByType(IMAGE_DEBUG_TYPE_CODEVIEW);
+	if (cv_data.type == 0 || cv_data.address_offset == 0)
+	{
+		return false;
+	}
+
+	DWORD cv_offset = cv_data.address_offset;
+	if (cv_offset + sizeof(DWORD) > m_image->Data().size())
+	{
+		return false;
+	}
+
+	BYTE* data = const_cast<BYTE*>(m_image->Data().data());
+	DWORD signature = *reinterpret_cast<DWORD*>(data + cv_offset);
+
+	if (signature == IMAGE_RSDS_SIGNATURE)
+	{
+		// Signature 4;
+		// GUID		16;
+		// Age		 4;
+		DWORD pdb_offset = cv_offset + 4 + 16 + 4;
+		if (pdb_offset >= m_image->Data().size())
+		{
+			return false;
+		}
+
+		size_t max_len = m_image->Data().size() - pdb_offset;
+		char* pdb_path = reinterpret_cast<char*>(data + pdb_offset);
+		size_t path_len = strnlen(pdb_path, max_len);
+
+		std::memset(pdb_path, 0, path_len);
+
+		return true;
+	}
+
+	return false;
+}
 
 inline DWORD PE::_Utils::RvaToOffset(DWORD rva) const noexcept
 {
@@ -1238,6 +1313,45 @@ std::optional<VersionInfo> PE::_Resources::GetVersionInfo() const noexcept
 	return std::nullopt;
 }
 
+std::string_view PE::_Resources::TypeToString(WORD type_id) noexcept
+{
+	switch (type_id)
+	{
+	case RT_CURSOR:
+		return "CURSOR";
+	case RT_BITMAP:
+		return "BITMAP";
+	case RT_ICON:
+		return "ICON";
+	case RT_MENU:
+		return "MENU";
+	case RT_DIALOG:
+		return "DIALOG";
+	case RT_STRING:
+		return "STRING";
+	case RT_FONTDIR:
+		return "FONTDIR";
+	case RT_FONT:
+		return "FONT";
+	case RT_ACCELERATOR:
+		return "ACCELERATOR";
+	case RT_RCDATA:
+		return "RCDATA";
+	case RT_MESSAGETABLE:
+		return "MESSAGETABLE";
+	case RT_GROUP_CURSOR:
+		return "GROUP_CURSOR";
+	case RT_GROUP_ICON:
+		return "GROUP_ICON";
+	case RT_VERSION:
+		return "VERSION";
+	case RT_MANIFEST:
+		return "MANIFEST";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 
 // RICH HEADER
 
@@ -2000,6 +2114,103 @@ std::string_view PE::_RichHeader::ProductIdToString(WORD product_id) noexcept
 		return "Utc1900_POGO_O_C";
 	case 270:
 		return "Utc1900_POGO_O_CPP";
+	default:
+		return "Unknown";
+	}
+}
+
+// DEBUG DIRECTORY
+
+bool PE::_Debug::Present() const noexcept
+{
+	auto dir = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_DEBUG);
+	if (!dir)
+		return false;
+	return dir->Size >= sizeof(IMAGE_DEBUG_DIRECTORY);
+}
+
+std::vector<DebugEntry> PE::_Debug::GetAll() noexcept
+{
+
+	if (!Present())
+	{
+		return {};
+	}
+
+	std::vector<DebugEntry> entries;
+	auto directory = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_DEBUG);
+	for (size_t i = 0; i < directory->Size / sizeof(IMAGE_DEBUG_DIRECTORY); i++)
+	{
+		auto debug_entry = reinterpret_cast<const IMAGE_DEBUG_DIRECTORY*>(m_image->Data().data() + m_image->Utils().RvaToOffset(directory->VirtualAddress) + i * sizeof(IMAGE_DEBUG_DIRECTORY));
+		DebugEntry entry{};
+		entry.type = static_cast<WORD>(debug_entry->Type);
+		entry.size = debug_entry->SizeOfData;
+		entry.address_offset = debug_entry->PointerToRawData;
+		entry.address_rva = debug_entry->AddressOfRawData;
+
+		entries.push_back(entry);
+	}
+
+	return entries;
+}
+
+DebugEntry PE::_Debug::GetByType(const WORD type_id) noexcept
+{
+	if (!Present() || type_id > 19 || type_id <= 0)
+	{
+		return {};
+	}
+
+	auto dir = GetAll();
+	for (auto& debug_entry : dir)
+	{
+		if (debug_entry.type == type_id)
+		{
+			return debug_entry;
+		}
+	}
+
+	return {};
+}
+
+std::string_view PE::_Debug::TypeToString(const WORD type_id) const noexcept
+{
+	switch (type_id)
+	{
+	case IMAGE_DEBUG_TYPE_COFF:
+		return "COFF";
+	case IMAGE_DEBUG_TYPE_CODEVIEW:
+		return "Codeview";
+	case IMAGE_DEBUG_TYPE_FPO:
+		return "FPO";
+	case IMAGE_DEBUG_TYPE_MISC:
+		return "MISC";
+	case IMAGE_DEBUG_TYPE_EXCEPTION:
+		return "Exception";
+	case IMAGE_DEBUG_TYPE_FIXUP:
+		return "Fixup";
+	case IMAGE_DEBUG_TYPE_OMAP_TO_SRC:
+		return "OMAP to Src";
+	case IMAGE_DEBUG_TYPE_OMAP_FROM_SRC:
+		return "OMAP from Src";
+	case IMAGE_DEBUG_TYPE_BORLAND:
+		return "Borland";
+	case IMAGE_DEBUG_TYPE_RESERVED10:
+		return "Reserved10";
+	case IMAGE_DEBUG_TYPE_CLSID:
+		return "CLSID";
+	case IMAGE_DEBUG_TYPE_VC_FEATURE:
+		return "VC Feature";
+	case IMAGE_DEBUG_TYPE_POGO:
+		return "POGO";
+	case IMAGE_DEBUG_TYPE_ILTCG:
+		return "ILTCG";
+	case IMAGE_DEBUG_TYPE_MPX:
+		return "MPX";
+	case IMAGE_DEBUG_TYPE_REPRO:
+		return "Repro";
+	case IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS:
+		return "Ex DLL Characteristics";
 	default:
 		return "Unknown";
 	}

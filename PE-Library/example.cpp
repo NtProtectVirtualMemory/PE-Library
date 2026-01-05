@@ -13,10 +13,12 @@ __forceinline static void wait(std::chrono::duration<Rep, Period> duration) noex
 // Example usage
 
 int main(int argc, char* argv[]) {
-	if (argc < 2) {
-		printf("Usage: %s <path to PE file>\n", argv[0]);
+
+	if (argc < 2)
+	{
+		printf("Usage: %s <path_to_pe_file>\n", argv[0]);
 		wait(std::chrono::seconds(3));
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	const char* file_path = argv[1];
@@ -367,6 +369,51 @@ int main(int argc, char* argv[]) {
 	for (const auto& str : unicode_strings)
 	{
 		printf("  %.*S\n", static_cast<int>(str.size()), str.data());
+	}
+
+	// Get all debug entries
+	printf("\nDisplaying Debug Entries\n");
+	std::vector<DebugEntry> debug_entries = image.Debug().GetAll();
+
+	if (!debug_entries.empty())
+	{
+		printf("Total debug entries: %zu\n\n", debug_entries.size());
+		for (const auto& dbg : debug_entries)
+		{
+			printf("  Type: %s (%u) | Size: 0x%X | File Offset: 0x%X | RVA: 0x%X\n",
+				image.Debug().TypeToString(dbg.type).data(),
+				dbg.type,
+				dbg.size,
+				dbg.address_offset,
+				dbg.address_rva);
+		}
+	}
+	else
+	{
+		printf("No debug entries found.\n");
+	}
+
+	// Stripping PDB info (if any)
+	printf("\nStripping PDB info (if any)\n");
+
+	if (image.Utils().StripPDBInfo())
+	{
+		printf(" - PDB info stripped successfully.\n");
+	}
+	else
+	{
+		printf(" - No PDB info found or failed to strip.\n");
+	}
+
+	// Save image
+
+	if (image.SaveImage(file_path))
+	{
+		printf(" - Image saved successfully to: %s\n", file_path);
+	}
+	else
+	{
+		printf(" - Failed to save image to: %s\n", file_path);
 	}
 
 	printf("\n");
