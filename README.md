@@ -20,7 +20,7 @@ The Following Features this Library currently offers will be listed below
 - Rich header parsing with checksum validation and tool identification
 - RVA, VA, and file offset conversion utilities
 - Unicode and ASCII String extraction
-
+- Debug directory parsing
 ```
 
 ## Current Project Structure
