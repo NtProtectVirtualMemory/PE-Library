@@ -357,13 +357,13 @@ int main(int argc, char* argv[]) {
 	auto ascii_strings = image.Utils().GetAsciiStrings(3);
 	auto unicode_strings = image.Utils().GetUnicodeStrings(5);
 
-	printf("\nFound %zu ASCII strings (min length 3)\n", ascii_strings.size());
+	printf("\n* Found %zu ASCII strings (min length 3):\n\n", ascii_strings.size());
 	for (const auto& str : ascii_strings)
 	{
 		printf("  %.*s\n", static_cast<int>(str.size()), str.data());
 	}
 
-	printf("\nFound %zu Unicode strings (min length 5)\n", unicode_strings.size());
+	printf("\n* Found %zu Unicode strings (min length 5):\n\n", unicode_strings.size());
 	for (const auto& str : unicode_strings)
 	{
 		printf("  %.*S\n", static_cast<int>(str.size()), str.data());
