@@ -639,8 +639,13 @@ namespace PE
 	public:
 		_Sections(Image* image);
 
-		[[nodiscard]] std::vector<std::string_view> List() const noexcept;
-		[[nodiscard]] const IMAGE_SECTION_HEADER* Get(const char* name) const noexcept;
+		[[nodiscard]] constexpr WORD Count() const noexcept { return m_number_of_sections; }
+
+		[[nodiscard]] const std::vector<std::string_view> List() const noexcept;
+		[[nodiscard]] const std::vector<const IMAGE_SECTION_HEADER*> GetAll() const noexcept;
+		[[nodiscard]] const IMAGE_SECTION_HEADER* GetByName(const char* name) const noexcept;
+		[[nodiscard]] const IMAGE_SECTION_HEADER* GetByIndex(size_t index) const noexcept;
+
 	};
 
 
@@ -989,7 +994,7 @@ namespace PE
 
 	// SECTIONS
 
-	inline std::vector<std::string_view> PE::_Sections::List() const noexcept
+	inline const std::vector<std::string_view> PE::_Sections::List() const noexcept
 	{
 		std::vector<std::string_view> section_names;
 		section_names.reserve(m_number_of_sections);
@@ -1006,7 +1011,24 @@ namespace PE
 		return section_names;
 	}
 
-	inline const IMAGE_SECTION_HEADER* PE::_Sections::Get(const char* name) const noexcept
+	inline const std::vector<const IMAGE_SECTION_HEADER*> PE::_Sections::GetAll() const noexcept
+	{
+		if (m_number_of_sections > 0)
+		{
+			std::vector<const IMAGE_SECTION_HEADER*> sections;
+			sections.reserve(m_number_of_sections);
+			for (size_t i = 0; i < m_number_of_sections; ++i)
+			{
+				sections.push_back(&m_sections[i]);
+			}
+
+			return sections;
+		}
+
+		return {};
+	}
+
+	inline const IMAGE_SECTION_HEADER* PE::_Sections::GetByName(const char* name) const noexcept
 	{
 		for (size_t i = 0; i < m_number_of_sections; ++i)
 		{
@@ -1016,6 +1038,15 @@ namespace PE
 			}
 		}
 
+		return nullptr;
+	}
+
+	inline const IMAGE_SECTION_HEADER* PE::_Sections::GetByIndex(size_t index) const noexcept
+	{
+		if (index < m_number_of_sections)
+		{
+			return &m_sections[index];
+		}
 		return nullptr;
 	}
 

@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
 	printf("Sections validated successfully.\n\n");
 
 	// Get a section by name (e.g., ".data")
-	auto section_header = image.Sections().Get(".data");
+	auto section_header = image.Sections().GetByName(".data");
 	if (section_header)
 	{
 		printf("* .data section:\n");
@@ -355,7 +355,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Getting strings
-
 	auto ascii_strings = image.Utils().GetAsciiStrings(3);
 	auto unicode_strings = image.Utils().GetUnicodeStrings(5);
 
@@ -406,7 +405,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Save image
-
 	if (image.SaveImage(file_path))
 	{
 		printf(" - Image saved successfully to: %s\n", file_path);
