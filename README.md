@@ -1,3 +1,4 @@
+
 # Premier PE Library
 
 A modern C++20 library for parsing and manipulating Windows Portable Executable (PE) files.
@@ -19,13 +20,19 @@ The Following Features this Library currently offers will be listed below
 - Resource tree parsing with version info and manifest extraction
 - Rich header parsing with checksum validation and tool identification
 - RVA, VA, and file offset conversion utilities
-- Unicode and ASCII String extraction
 - Debug directory parsing
+- Unicode and ASCII String extraction
 ```
 
 ## Current Project Structure
 
 ```
+PE Fuzzer/
+├── Corpus/
+│   └── 900+ Samples        # Testing Samples
+├── pe-fuzzer.dict          # Fuzzer dictionary
+└── main.cpp                # Entry of the fuzzer
+
 PE Library/
 ├── premier/
 │   ├── PE.hpp              # Main library header
@@ -76,10 +83,40 @@ int main() {
 }
 ```
 
-## License
+## PE Fuzzer
+The fuzzer has already processed **~150,000** different PE samples and helped discover & fix multiple parsing edge-cases, buffer issues and potential crashes as well as slow units.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) file for details.
+### Current State
+
+- **~150k** unique samples processed.
+- All discovered crashes & undefined behavior issues have been fixed.
+- Actively used during development & testing
+
+### Basic Usage
+1. Open "x64 Native Tools Command Prompt for VS"
+2. cd "path/to/PE-Fuzzer.exe"
+3. PE-Fuzzer.exe "path/to/corpus" -jobs=6 -workers=6 -rss_limit_mb=0 -dict="path/to/pe-fuzzer.dict"
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+What we **accept**:
+- Bug reports & crash reproducers (especially with ASAN logs) 
+- Parser robustness improvements / edge-case handling 
+- Performance optimizations - Better documentation / code comments 
+- Fuzzer corpus samples, dictionary entries, or mutation strategies
+
+
+### How to contribute
+
+1. If you're fixing a bug or adding a feature, please **open an issue first** (unless it's a very obvious typo/doc fix) 
+2. Fork the repository and create your branch from `main` 
+3. If possible, add or extend tests, this is highly appreciated.
+4. Make sure the code follows the current style: 
+   - Use C++20 features when it improves readability/safety 
+   - Keep public API clean & minimal
+    - Use `snake_case` for private members/functions, `PascalCase` for public types
+ 5. Make small, focused pull requests with clear titles & description
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) file for details.

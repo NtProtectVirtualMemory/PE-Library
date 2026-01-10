@@ -1103,15 +1103,37 @@ namespace PE
 
 	inline size_t PE::_Imports::GetModuleCount() const noexcept
 	{
-		auto desc = GetDescriptors();
-		if (!desc)
+		if (!m_image)
 			return 0;
 
+		auto dir = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_IMPORT);
+		if (!dir || dir->Size < sizeof(IMAGE_IMPORT_DESCRIPTOR))
+			return 0;
+
+		DWORD imports_offset = m_image->Utils().RvaToOffset(dir->VirtualAddress);
+		if (imports_offset == 0)
+			return 0;
+
+		const BYTE* data = m_image->Data().data();
+		const size_t data_size = m_image->Data().size();
+
+		if (imports_offset >= data_size)
+			return 0;
+
+		size_t table_size = dir->Size;
+		if (imports_offset + table_size > data_size)
+			table_size = data_size - imports_offset;
+
+		const size_t max_descriptors = table_size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
+		const auto* desc = reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(data + imports_offset);
+
 		size_t count = 0;
-		while (desc->Name != 0)
+		for (size_t i = 0; i < max_descriptors; ++i, ++desc)
 		{
+			if (desc->Name == 0)
+				break;
+
 			count++;
-			desc++;
 		}
 
 		return count;
