@@ -574,7 +574,14 @@ std::vector<std::string_view> PE::_Imports::GetImportedModules() const noexcept
 		if (name_offset != 0 && name_offset < data_size)
 		{
 			const char* name = reinterpret_cast<const char*>(data + name_offset);
-			dlls.emplace_back(name);
+
+			size_t max_len = data_size - name_offset;
+			size_t name_len = strnlen(name, max_len);
+
+			if (name_len < max_len)
+			{
+				dlls.emplace_back(name);
+			}
 		}
 
 		desc_offset += sizeof(IMAGE_IMPORT_DESCRIPTOR);
@@ -614,6 +621,16 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 		}
 
 		const char* current_dll = reinterpret_cast<const char*>(data + name_offset);
+
+		// Safe string comparison with bounds check
+		size_t max_dll_len = data_size - name_offset;
+		size_t dll_len = strnlen(current_dll, max_dll_len);
+		if (dll_len >= max_dll_len)
+		{
+			desc_offset += sizeof(IMAGE_IMPORT_DESCRIPTOR);
+			continue;
+		}
+
 		if (_stricmp(current_dll, dll_name) != 0)
 		{
 			desc_offset += sizeof(IMAGE_IMPORT_DESCRIPTOR);
@@ -660,7 +677,15 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 						func.is_ordinal = false;
 						func.ordinal = 0;
 						func.hint = import_by_name->Hint;
-						func.name = import_by_name->Name;
+
+						size_t name_start = hint_offset + offsetof(IMAGE_IMPORT_BY_NAME, Name);
+						size_t max_name_len = data_size - name_start;
+						size_t name_len = strnlen(import_by_name->Name, max_name_len);
+
+						if (name_len < max_name_len)
+						{
+							func.name = std::string_view(import_by_name->Name, name_len);
+						}
 					}
 				}
 
@@ -697,7 +722,14 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 						func.is_ordinal = false;
 						func.ordinal = 0;
 						func.hint = import_by_name->Hint;
-						func.name = import_by_name->Name;
+
+						size_t name_start = hint_offset + offsetof(IMAGE_IMPORT_BY_NAME, Name);
+						size_t max_name_len = data_size - name_start;
+						size_t name_len = strnlen(import_by_name->Name, max_name_len);
+						if (name_len < max_name_len)
+						{
+							func.name = std::string_view(import_by_name->Name, name_len);
+						}
 					}
 				}
 
