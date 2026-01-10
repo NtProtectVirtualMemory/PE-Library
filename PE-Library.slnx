@@ -3,5 +3,6 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="PE-Fuzzer/PE-Fuzzer.vcxproj" Id="e214c2b2-6b35-481b-963f-14f87e248847" />
   <Project Path="PE-Library/PE-Library.vcxproj" Id="9ec0aefc-84e2-4001-8a51-07e418289173" />
 </Solution>
