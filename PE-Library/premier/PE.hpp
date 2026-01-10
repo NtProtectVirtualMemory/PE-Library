@@ -266,6 +266,28 @@ struct DebugEntry
 	DWORD address_offset;
 };
 
+// The structures below correspond to the Packer detection
+
+enum class PackerConfidence : uint8_t
+{
+	None = 0,
+	Low = 20,
+	Medium = 60,
+	High = 80,
+	Certain = 100
+};
+
+struct PackerInfo
+{
+	bool packed = false;
+	std::string_view name;
+	double entropy_score = 0.0;
+	std::string_view detection_method;
+	PackerConfidence confidence = PackerConfidence::None;
+
+};
+
+
 //Architecture Structure of Windows
 
 typedef struct _IMAGE_BASE_RELOCATION {
@@ -840,6 +862,16 @@ namespace PE
 
 		[[nodiscard]] bool StripPDBInfo() const noexcept;
 
+		/*
+		* @brief Scans the PE image for a specific byte pattern
+		* @param pattern The byte pattern to search for (e.g. "\x90\x90\x90")
+		* @param mask The mask for the pattern (e.g. "xxx" where 'x' means exact match and '?' means wildcard)
+		* @param out The output address where the pattern was found (RVA)
+		* @return True if the pattern was found, false otherwise
+		*/
+		[[nodiscard]] bool PatternScan(const char* pattern, const char* mask, uintptr_t* out) const noexcept;
+		[[nodiscard]] ULONGLONG RvaToVa(DWORD rva) const noexcept;
+
 		[[nodiscard]] DWORD RvaToOffset(DWORD rva) const noexcept;
 		[[nodiscard]] DWORD VaToRva(ULONGLONG va) const noexcept;
 		[[nodiscard]] DWORD OffsetToRva(DWORD file_offset) const noexcept;
@@ -849,6 +881,45 @@ namespace PE
 
 	private:
 		Image* m_image;
+
+	};
+
+	class _Packer
+	{
+	private:
+		Image* m_image;
+
+		struct SignaturePattern
+		{
+			const char* pattern;
+			const char* mask;
+			std::string_view packer_name;
+			std::string_view description;
+			PackerConfidence confidence;
+		};
+
+		static constexpr SignaturePattern packer_signature[] = {
+			{ "\x54\x68\x65\x6d\x69\x64\x61",			"xxxxxxx", "Themida",      "signature \"Themida\"",      PackerConfidence::Certain    },
+			{ "\x55\x50\x58\x21",						"xxxx",    "UPX",          "signature \"UPX!\"",        PackerConfidence::High    },
+			{ "\x41\x53\x50\x61\x63\x6b",				"xxxxxx",  "ASPack",       "signature \"ASPack\"",      PackerConfidence::Certain    },
+			{ "\x50\x45\x43\x32",						"xxxx",    "PECompact 2",  "signature \"PEC2\"",        PackerConfidence::Medium  },
+			{ "\x50\x45\x43\x6F\x6D\x70\x61\x63\x74",	"xxxxxxxxx", "PECompact",   "signature \"PECompact\"",   PackerConfidence::Medium  },
+			{ "\x4D\x50\x52\x45\x53\x53\x31",			"xxxxxxx", "MPRESS",       "signature \"MPRESS1\"",     PackerConfidence::Medium  },
+			{ "\x46\x53\x47\x21",						"xxxx",    "FSG",          "signature \"FSG!\"",        PackerConfidence::Medium  },
+			{ "\x6B\x6B\x72\x75\x6E\x63\x68\x79",		"xxxxxxxx", "kkrunchy",   "signature \"kkrunchy\"",    PackerConfidence::Medium  },
+			{ "\x4D\x6F\x6C\x65\x42\x6F\x78",			"xxxxxxx", "MoleBox",      "signature \"MoleBox\"",     PackerConfidence::Medium  },
+			{ "\x56\x4D\x50\x72\x6F\x74\x65\x63\x74",	"xxxxxxxxx", "VMProtect",   "signature \"VMProtect\"",   PackerConfidence::High    },
+			{ "\x45\x6E\x69\x67\x6D\x61",				"xxxxxx",  "Enigma",       "signature \"Enigma\"",      PackerConfidence::Medium  },
+		};
+
+
+		// Entropy
+		double CalculateEntropy(const BYTE* data, size_t size) const noexcept;
+		double GetHighestEntropy() const noexcept;
+
+	public:
+		_Packer(Image* image) : m_image(image) {}
+		[[nodiscard]] PackerInfo IdentifyPacker() const noexcept;
 
 	};
 
@@ -884,6 +955,7 @@ namespace PE
 		_OptionalHeader OptionalHeader() noexcept { return _OptionalHeader(this); }
 		_Utils          Utils() noexcept { return _Utils(this); }
 		_Debug 			Debug() noexcept { return _Debug(this); }
+		_Packer         Packer() noexcept { return _Packer(this); }
 
 		[[nodiscard]] std::vector<BYTE>& MutableData() noexcept { return m_data; }
 		[[nodiscard]] const std::vector<BYTE>& Data() const noexcept { return m_data; }

@@ -392,18 +392,6 @@ int main(int argc, char* argv[]) {
 		printf("No debug entries found.\n");
 	}
 
-	// Stripping PDB info (if any)
-	printf("\nStripping PDB info (if any)\n");
-
-	if (image.Utils().StripPDBInfo())
-	{
-		printf(" - PDB info stripped successfully.\n");
-	}
-	else
-	{
-		printf(" - No PDB info found or failed to strip.\n");
-	}
-
 	// Save image
 	if (image.SaveImage(file_path))
 	{
@@ -412,6 +400,22 @@ int main(int argc, char* argv[]) {
 	else
 	{
 		printf(" - Failed to save image to: %s\n", file_path);
+	}
+
+	// Identify packer (if any)
+	printf("\nIdentifying Packer\n");
+	PackerInfo packer_info = image.Packer().IdentifyPacker();
+
+	if (packer_info.packed)
+	{
+		printf(" - Packer detected: %s\n", packer_info.name.data());
+		printf(" - Entropy Score: %.2f\n", packer_info.entropy_score);
+		printf(" - Detection Method: %s\n", packer_info.detection_method.data());
+		printf(" - Confidence Level: %u%%\n", static_cast<unsigned int>(packer_info.confidence));
+	}
+	else
+	{
+		printf(" - No packer detected.\n");
 	}
 
 	printf("\n");

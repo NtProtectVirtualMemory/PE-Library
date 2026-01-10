@@ -128,6 +128,36 @@ bool PE::_Utils::StripPDBInfo() const noexcept
 	return false;
 }
 
+bool PE::_Utils::PatternScan(const char* pattern, const char* mask, uintptr_t* out) const noexcept
+{
+	size_t str_len = strlen(mask);
+	if (str_len != strlen(pattern))
+		return false;
+
+	for (size_t i = 0; i < m_image->Data().size() - str_len; ++i)
+	{
+		bool found = true;
+		for (size_t j = 0; j < str_len; ++j)
+		{
+			if (mask[j] == 'x' && pattern[j] != m_image->Data()[i + j])
+			{
+				found = false;
+				break;
+			}
+		}
+		if (found)
+		{
+			if (out != nullptr)
+			{
+				*out = reinterpret_cast<uintptr_t>(m_image->Data().data() + i);
+			}
+			return true;
+		}
+	}
+
+	return false;
+}
+
 inline DWORD PE::_Utils::RvaToOffset(DWORD rva) const noexcept
 {
 	if (!m_image)
@@ -2454,4 +2484,202 @@ std::string_view PE::_Debug::TypeToString(const WORD type_id) const noexcept
 	default:
 		return "Unknown";
 	}
+}
+
+// PACKER DETECTION
+
+// Entropy
+double PE::_Packer::CalculateEntropy(const BYTE* data, size_t size) const noexcept
+{
+	if (size == 0)
+	{
+		return 0.0;
+	}
+
+	uint32_t frequency[256] = { 0 };
+	for (size_t i = 0; i < size; ++i)
+	{
+		frequency[data[i]]++;
+	}
+
+	double entropy = 0.0;
+	for (size_t i = 0; i < 256; ++i)
+	{
+		if (frequency[i] == 0)
+		{
+			continue;
+		}
+
+		double probability = static_cast<double>(frequency[i]) / static_cast<double>(size);
+		entropy -= probability * log2(probability);
+	}
+
+	return entropy;
+}
+
+double PE::_Packer::GetHighestEntropy() const noexcept
+{
+	double max_entropy = 0.0f;
+
+	for (const IMAGE_SECTION_HEADER* pSection : m_image->Sections().GetAll())
+	{
+		if (!pSection) continue;
+
+		size_t raw_size = pSection->SizeOfRawData;
+		if (raw_size == 0) continue;
+
+		const uint8_t* data = m_image->Data().data() + pSection->PointerToRawData;
+		if (!data) continue;
+
+		while (raw_size > 0 && data[raw_size - 1] == 0)
+			--raw_size;
+
+		if (raw_size == 0) continue;
+
+		double entropy = CalculateEntropy(data, raw_size);
+		if (entropy > max_entropy)
+			max_entropy = entropy;
+	}
+
+	return max_entropy;
+}
+
+// Public API
+
+PackerInfo PE::_Packer::IdentifyPacker() const noexcept
+{
+	PackerInfo packer_info{};
+
+	if (!m_image || !m_image->IsValid())
+	{
+		return packer_info;
+	}
+
+	packer_info.entropy_score = GetHighestEntropy();
+
+	const auto& image_data = m_image->Data();
+	const auto sections = m_image->Sections().GetAll();
+
+	auto assign_detection = [&](std::string_view name, std::string_view method, PackerConfidence confidence)
+		{
+			if (!packer_info.packed || confidence > packer_info.confidence)
+			{
+				packer_info.packed = true;
+				packer_info.name = name;
+				packer_info.detection_method = method;
+				packer_info.confidence = confidence;
+			}
+		};
+
+	const auto get_section_name = [](const IMAGE_SECTION_HEADER* section)
+		{
+			size_t len = 0;
+			while (len < IMAGE_SIZEOF_SHORT_NAME && section->Name[len] != '\0')
+			{
+				++len;
+			}
+
+			return std::string(reinterpret_cast<const char*>(section->Name), len);
+		};
+
+	struct SectionInfo
+	{
+		const char* section_name;
+		std::string_view packer_name;
+		PackerConfidence confidence;
+	};
+
+	static constexpr SectionInfo section_info[] = {
+		{ ".aspack",   "ASPack",      PackerConfidence::Certain },
+		{ ".adata",    "ASPack",      PackerConfidence::Medium },
+		{ ".themida",  "Themida",     PackerConfidence::Certain },
+		{ ".vmp0",     "VMProtect",   PackerConfidence::Certain },
+		{ ".vmp1",     "VMProtect",   PackerConfidence::Certain },
+		{ ".MPRESS1",  "MPRESS",      PackerConfidence::High },
+		{ ".MPRESS2",  "MPRESS",      PackerConfidence::High },
+		{ ".petite",   "Petite",      PackerConfidence::High },
+		{ "PEC2",      "PECompact 2", PackerConfidence::Medium },
+	};
+
+	for (const auto* section : sections)
+	{
+		if (!section)
+		{
+			continue;
+		}
+
+		std::string section_name = get_section_name(section);
+		if (section_name.empty())
+		{
+			continue;
+		}
+
+		for (const auto& signature : section_info)
+		{
+			if (_stricmp(section_name.c_str(), signature.section_name) == 0)
+			{
+				assign_detection(signature.packer_name, "section-name", signature.confidence);
+				break;
+			}
+		}
+
+		if (_strnicmp(section_name.c_str(), "upx", 3) == 0)
+		{
+			assign_detection("UPX", "section-name", PackerConfidence::Certain);
+		}
+	}
+
+	for (const auto& signature : packer_signature)
+	{
+		if (m_image->Utils().PatternScan(signature.pattern, signature.mask, nullptr))
+		{
+			assign_detection(signature.packer_name, signature.description, signature.confidence);
+		}
+	}
+
+	size_t overlay_size = 0;
+	size_t last_section_end = 0;
+	for (const auto* section : sections)
+	{
+		if (!section) { continue; }
+
+		const size_t start = section->PointerToRawData;
+		const size_t raw_size = section->SizeOfRawData;
+		if (start >= image_data.size())
+		{
+			continue;
+		}
+
+		const size_t end = std::min(image_data.size(), start + raw_size);
+		if (end > last_section_end)
+		{
+			last_section_end = end;
+		}
+	}
+
+	if (image_data.size() > last_section_end)
+	{
+		overlay_size = image_data.size() - last_section_end;
+	}
+
+	size_t import_modules = 0;
+	const bool imports_present = m_image->Imports().Present();
+	if (imports_present)
+	{
+		import_modules = m_image->Imports().GetModuleCount();
+	}
+
+	const bool large_overlay = overlay_size >= 0x20000;
+	const bool high_entropy = packer_info.entropy_score >= 7.2f;
+	const bool suspicious_imports = !imports_present || import_modules <= 2;
+	if (high_entropy && suspicious_imports)
+	{
+		assign_detection("Generic packer", "high entropy + tiny import table", PackerConfidence::Medium);
+	}
+	else if (high_entropy && large_overlay)
+	{
+		assign_detection("Generic packer", "high entropy + large overlay", PackerConfidence::Low);
+	}
+
+	return packer_info;
 }

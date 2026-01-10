@@ -22,6 +22,7 @@ The Following Features this Library currently offers will be listed below
 - RVA, VA, and file offset conversion utilities
 - Debug directory parsing
 - Unicode and ASCII String extraction
+- PE Packer detection
 ```
 
 ## Current Project Structure

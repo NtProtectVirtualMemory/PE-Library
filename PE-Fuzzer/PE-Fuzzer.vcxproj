@@ -157,7 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\PE-Library\premier\PE.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="fuzzer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PE-Library\PE-Library.vcxproj">
