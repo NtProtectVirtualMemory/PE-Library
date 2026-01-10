@@ -32,6 +32,27 @@ PE::Image::Image(const char* path)
 	ValidateImage();
 }
 
+PE::Image::Image(const BYTE* data, size_t size)
+{
+	if (!data || size == 0)
+		return;
+
+	m_data.assign(data, data + size);
+	ValidateImage();
+}
+
+PE::Image::Image(std::vector<BYTE>&& data)
+	: m_data(std::move(data))
+{
+	ValidateImage();
+}
+
+PE::Image::Image(const std::vector<BYTE>& data)
+	: m_data(data)
+{
+	ValidateImage();
+}
+
 bool PE::Image::SaveImage(const char* path) const noexcept
 {
 	if (m_data.empty())
@@ -40,7 +61,7 @@ bool PE::Image::SaveImage(const char* path) const noexcept
 	}
 
 	std::string backup_path = std::string(m_path) + ".bak";
-	
+
 	if (std::rename(m_path, backup_path.c_str())) // Returns 0 if it worked
 	{
 		return false;
@@ -526,26 +547,6 @@ inline const IMAGE_DATA_DIRECTORY* PE::_DataDirectory::Get(WORD index) const noe
 	return nullptr;
 }
 
-template<typename T>
-inline const T* PE::_DataDirectory::GetData(WORD index) const noexcept
-{
-	if (!m_image)
-		return nullptr;
-
-	auto dir = Get(index);
-	if (!dir || dir->VirtualAddress == 0)
-		return nullptr;
-
-	DWORD offset = m_image->Utils().RvaToOffset(dir->VirtualAddress);
-	if (offset == 0)
-		return nullptr;
-
-	if (offset + sizeof(T) > m_image->Data().size())
-		return nullptr;
-
-	return reinterpret_cast<const T*>(m_image->Data().data() + offset);
-}
-
 // IMPORT ADDRESS TABLE
 
 std::vector<std::string_view> PE::_Imports::GetImportedModules() const noexcept
@@ -556,15 +557,27 @@ std::vector<std::string_view> PE::_Imports::GetImportedModules() const noexcept
 	if (!desc)
 		return dlls;
 
-	while (desc->Name != 0)
+	const BYTE* data = m_image->Data().data();
+	size_t data_size = m_image->Data().size();
+	size_t desc_offset = reinterpret_cast<const BYTE*>(desc) - data;
+
+	while (desc_offset + sizeof(IMAGE_IMPORT_DESCRIPTOR) <= data_size)
 	{
-		DWORD name_offset = m_image->Utils().RvaToOffset(desc->Name);
-		if (name_offset != 0 && name_offset < m_image->Data().size())
+		desc = reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(data + desc_offset);
+
+		if (desc->Name == 0)
 		{
-			const char* name = reinterpret_cast<const char*>(m_image->Data().data() + name_offset);
+			break;
+		}
+
+		DWORD name_offset = m_image->Utils().RvaToOffset(desc->Name);
+		if (name_offset != 0 && name_offset < data_size)
+		{
+			const char* name = reinterpret_cast<const char*>(data + name_offset);
 			dlls.emplace_back(name);
 		}
-		desc++;
+
+		desc_offset += sizeof(IMAGE_IMPORT_DESCRIPTOR);
 	}
 
 	return dlls;
@@ -576,22 +589,34 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 
 	auto desc = GetDescriptors();
 	if (!desc || !dll_name)
-		return functions;
-
-	while (desc->Name != 0)
 	{
-		DWORD name_offset = m_image->Utils().RvaToOffset(desc->Name);
-		if (name_offset == 0 || name_offset >= m_image->Data().size())
+		return functions;
+	}
+
+	const BYTE* data = m_image->Data().data();
+	size_t data_size = m_image->Data().size();
+	size_t desc_offset = reinterpret_cast<const BYTE*>(desc) - data;
+
+	while (desc_offset + sizeof(IMAGE_IMPORT_DESCRIPTOR) <= data_size)
+	{
+		desc = reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(data + desc_offset);
+
+		if (desc->Name == 0)
 		{
-			desc++;
+			break;
+		}
+
+		DWORD name_offset = m_image->Utils().RvaToOffset(desc->Name);
+		if (name_offset == 0 || name_offset >= data_size)
+		{
+			desc_offset += sizeof(IMAGE_IMPORT_DESCRIPTOR);
 			continue;
 		}
 
-		const char* current_dll = reinterpret_cast<const char*>(m_image->Data().data() + name_offset);
-
+		const char* current_dll = reinterpret_cast<const char*>(data + name_offset);
 		if (_stricmp(current_dll, dll_name) != 0)
 		{
-			desc++;
+			desc_offset += sizeof(IMAGE_IMPORT_DESCRIPTOR);
 			continue;
 		}
 
@@ -599,15 +624,21 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 		DWORD thunk_offset = m_image->Utils().RvaToOffset(thunk_rva);
 
 		if (thunk_offset == 0)
-			return functions;
+		{
+			break;
+		}
 
 		if (m_image->IsPE64())
 		{
-			auto thunk = reinterpret_cast<const IMAGE_THUNK_DATA64*>(
-				m_image->Data().data() + thunk_offset);
-
-			while (thunk->u1.AddressOfData != 0)
+			while (thunk_offset + sizeof(IMAGE_THUNK_DATA64) <= data_size)
 			{
+				auto thunk = reinterpret_cast<const IMAGE_THUNK_DATA64*>(data + thunk_offset);
+
+				if (thunk->u1.AddressOfData == 0)
+				{
+					break;
+				}
+
 				ImportFunction func{};
 
 				if (thunk->u1.Ordinal & IMAGE_ORDINAL_FLAG64)
@@ -621,10 +652,10 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 					DWORD hint_offset = m_image->Utils().RvaToOffset(
 						static_cast<DWORD>(thunk->u1.AddressOfData));
 
-					if (hint_offset != 0 && hint_offset < m_image->Data().size())
+					if (hint_offset != 0 && hint_offset + sizeof(IMAGE_IMPORT_BY_NAME) <= data_size)
 					{
 						auto import_by_name = reinterpret_cast<const IMAGE_IMPORT_BY_NAME*>(
-							m_image->Data().data() + hint_offset);
+							data + hint_offset);
 
 						func.is_ordinal = false;
 						func.ordinal = 0;
@@ -634,16 +665,18 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 				}
 
 				functions.push_back(func);
-				thunk++;
+				thunk_offset += sizeof(IMAGE_THUNK_DATA64);
 			}
 		}
 		else
 		{
-			auto thunk = reinterpret_cast<const IMAGE_THUNK_DATA32*>(
-				m_image->Data().data() + thunk_offset);
-
-			while (thunk->u1.AddressOfData != 0)
+			while (thunk_offset + sizeof(IMAGE_THUNK_DATA32) <= data_size)
 			{
+				auto thunk = reinterpret_cast<const IMAGE_THUNK_DATA32*>(data + thunk_offset);
+
+				if (thunk->u1.AddressOfData == 0)
+					break;
+
 				ImportFunction func{};
 
 				if (thunk->u1.Ordinal & IMAGE_ORDINAL_FLAG32)
@@ -656,10 +689,10 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 				{
 					DWORD hint_offset = m_image->Utils().RvaToOffset(thunk->u1.AddressOfData);
 
-					if (hint_offset != 0 && hint_offset < m_image->Data().size())
+					if (hint_offset != 0 && hint_offset + sizeof(IMAGE_IMPORT_BY_NAME) <= data_size)
 					{
 						auto import_by_name = reinterpret_cast<const IMAGE_IMPORT_BY_NAME*>(
-							m_image->Data().data() + hint_offset);
+							data + hint_offset);
 
 						func.is_ordinal = false;
 						func.ordinal = 0;
@@ -669,7 +702,7 @@ std::vector<ImportFunction> PE::_Imports::FunctionFromModule(const char* dll_nam
 				}
 
 				functions.push_back(func);
-				thunk++;
+				thunk_offset += sizeof(IMAGE_THUNK_DATA32);
 			}
 		}
 
@@ -687,6 +720,19 @@ std::vector<ExportFunction> PE::_Exports::All() const noexcept
 
 	auto exp_dir = GetDescriptor();
 	if (!exp_dir)
+	{
+		return exports;
+	}
+
+	const BYTE* data = m_image->Data().data();
+	size_t data_size = m_image->Data().size();
+
+	constexpr DWORD MAX_EXPORTS = 65536;
+
+	DWORD num_functions = exp_dir->NumberOfFunctions;
+	DWORD num_names = exp_dir->NumberOfNames;
+
+	if (num_functions > MAX_EXPORTS || num_names > MAX_EXPORTS)
 		return exports;
 
 	ULONGLONG image_base = 0;
@@ -694,13 +740,17 @@ std::vector<ExportFunction> PE::_Exports::All() const noexcept
 	{
 		auto opt = m_image->OptionalHeader().Get<IMAGE_OPTIONAL_HEADER64>();
 		if (opt)
+		{
 			image_base = opt->ImageBase;
+		}
 	}
 	else
 	{
 		auto opt = m_image->OptionalHeader().Get<IMAGE_OPTIONAL_HEADER32>();
 		if (opt)
+		{
 			image_base = opt->ImageBase;
+		}
 	}
 
 	auto dir_entry = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_EXPORT);
@@ -712,28 +762,58 @@ std::vector<ExportFunction> PE::_Exports::All() const noexcept
 	DWORD ordinals_offset = m_image->Utils().RvaToOffset(exp_dir->AddressOfNameOrdinals);
 
 	if (functions_offset == 0)
+	{
+		return exports;
+	}
+
+	if (functions_offset + static_cast<size_t>(num_functions) * sizeof(DWORD) > data_size)
 		return exports;
 
-	const DWORD* functions = reinterpret_cast<const DWORD*>(
-		m_image->Data().data() + functions_offset);
+	const DWORD* functions = reinterpret_cast<const DWORD*>(data + functions_offset);
 
 	const DWORD* names = nullptr;
 	const WORD* ordinals = nullptr;
 
 	if (names_offset != 0 && ordinals_offset != 0)
 	{
-		names = reinterpret_cast<const DWORD*>(m_image->Data().data() + names_offset);
-		ordinals = reinterpret_cast<const WORD*>(m_image->Data().data() + ordinals_offset);
+		if (names_offset + static_cast<size_t>(num_names) * sizeof(DWORD) > data_size)
+		{
+			num_names = 0;
+		}
+		else if (ordinals_offset + static_cast<size_t>(num_names) * sizeof(WORD) > data_size)
+		{
+			num_names = 0;
+		}
+		else
+		{
+			names = reinterpret_cast<const DWORD*>(data + names_offset);
+			ordinals = reinterpret_cast<const WORD*>(data + ordinals_offset);
+		}
 	}
 
-	exports.reserve(exp_dir->NumberOfFunctions);
+	std::vector<DWORD> ordinal_to_name_idx(num_functions, DWORD(-1));
+	if (names && ordinals)
+	{
+		for (DWORD j = 0; j < num_names; ++j)
+		{
+			WORD ord_idx = ordinals[j];
+			if (ord_idx < num_functions)
+			{
+				ordinal_to_name_idx[ord_idx] = j;
+			}
+		}
+	}
 
-	for (DWORD i = 0; i < exp_dir->NumberOfFunctions; ++i)
+	exports.reserve(num_functions);
+
+	for (DWORD i = 0; i < num_functions; ++i)
 	{
 		DWORD func_rva = functions[i];
 
 		if (func_rva == 0)
+		{
 			continue;
+		}
 
 		ExportFunction exp{};
 		exp.rva = func_rva;
@@ -745,10 +825,9 @@ std::vector<ExportFunction> PE::_Exports::All() const noexcept
 		{
 			exp.is_forwarded = true;
 			DWORD forward_offset = m_image->Utils().RvaToOffset(func_rva);
-			if (forward_offset != 0 && forward_offset < m_image->Data().size())
+			if (forward_offset != 0 && forward_offset < data_size)
 			{
-				exp.forward_name = reinterpret_cast<const char*>(
-					m_image->Data().data() + forward_offset);
+				exp.forward_name = reinterpret_cast<const char*>(data + forward_offset);
 			}
 		}
 		else
@@ -756,20 +835,14 @@ std::vector<ExportFunction> PE::_Exports::All() const noexcept
 			exp.is_forwarded = false;
 		}
 
-		if (names && ordinals)
+		// This is now O(1) instead of O(n2)
+		if (names && ordinal_to_name_idx[i] != DWORD(-1))
 		{
-			for (DWORD j = 0; j < exp_dir->NumberOfNames; ++j)
+			DWORD name_idx = ordinal_to_name_idx[i];
+			DWORD name_offset = m_image->Utils().RvaToOffset(names[name_idx]);
+			if (name_offset != 0 && name_offset < data_size)
 			{
-				if (ordinals[j] == i)
-				{
-					DWORD name_offset = m_image->Utils().RvaToOffset(names[j]);
-					if (name_offset != 0 && name_offset < m_image->Data().size())
-					{
-						exp.name = reinterpret_cast<const char*>(
-							m_image->Data().data() + name_offset);
-					}
-					break;
-				}
+				exp.name = reinterpret_cast<const char*>(data + name_offset);
 			}
 		}
 
@@ -786,15 +859,21 @@ std::vector<RelocationBlock> PE::_Relocations::GetBlocks() const noexcept
 	std::vector<RelocationBlock> blocks;
 
 	if (!Present())
+	{
 		return blocks;
+	}
 
 	auto dir = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_BASERELOC);
 	if (!dir)
+	{
 		return blocks;
+	}
 
 	DWORD reloc_offset = m_image->Utils().RvaToOffset(dir->VirtualAddress);
 	if (reloc_offset == 0)
+	{
 		return blocks;
+	}
 
 	const BYTE* data = m_image->Data().data();
 	size_t data_size = m_image->Data().size();
@@ -804,21 +883,43 @@ std::vector<RelocationBlock> PE::_Relocations::GetBlocks() const noexcept
 	while (processed < total_size)
 	{
 		if (reloc_offset + processed + sizeof(IMAGE_BASE_RELOCATION) > data_size)
+		{
 			break;
+		}
 
 		const IMAGE_BASE_RELOCATION* block =
 			reinterpret_cast<const IMAGE_BASE_RELOCATION*>(data + reloc_offset + processed);
 
-		if (block->SizeOfBlock == 0)
+		DWORD block_size = block->SizeOfBlock;
+		if (block_size == 0)
+		{
 			break;
+		}
 
-		if (block->SizeOfBlock < sizeof(IMAGE_BASE_RELOCATION))
+		if (block_size < sizeof(IMAGE_BASE_RELOCATION))
+		{
 			break;
+		}
+
+		if (block_size % 4 != 0)
+		{
+			break;
+		}
+
+		if (reloc_offset + processed + block_size > data_size)
+		{
+			break;
+		}
 
 		RelocationBlock reloc_block{};
 		reloc_block.page_rva = block->VirtualAddress;
 
 		DWORD entry_count = (block->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+		if (entry_count > 65536) // ~ 256KB of entries, more than enough.
+		{
+			break;
+		}
+
 		const WORD* entries = reinterpret_cast<const WORD*>(
 			data + reloc_offset + processed + sizeof(IMAGE_BASE_RELOCATION));
 
@@ -836,7 +937,12 @@ std::vector<RelocationBlock> PE::_Relocations::GetBlocks() const noexcept
 			RelocationEntry reloc_entry{};
 			reloc_entry.type = type;
 			reloc_entry.rva = block->VirtualAddress + offset;
-			reloc_entry.file_offset = m_image->Utils().RvaToOffset(reloc_entry.rva);
+
+			DWORD file_offset = m_image->Utils().RvaToOffset(reloc_entry.rva);
+			if (file_offset != 0)
+			{
+				reloc_entry.file_offset = file_offset;
+			}
 
 			reloc_block.entries.push_back(reloc_entry);
 		}
@@ -1046,15 +1152,21 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 	std::vector<ResourceEntry> entries;
 
 	if (!Present())
+	{
 		return entries;
+	}
 
 	auto dir = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_RESOURCE);
 	if (!dir)
+	{
 		return entries;
+	}
 
 	DWORD resource_base_offset = m_image->Utils().RvaToOffset(dir->VirtualAddress);
 	if (resource_base_offset == 0)
+	{
 		return entries;
+	}
 
 	const BYTE* data = m_image->Data().data();
 	size_t data_size = m_image->Data().size();
@@ -1062,11 +1174,27 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 
 	auto root_dir = GetRootDirectory();
 	if (!root_dir)
+	{
 		return entries;
+	}
+
+	constexpr WORD MAX_RESOURCE_ENTRIES = 4096;
 
 	WORD total_entries_l1 = root_dir->NumberOfNamedEntries + root_dir->NumberOfIdEntries;
+	if (total_entries_l1 > MAX_RESOURCE_ENTRIES)
+	{
+		return entries;
+	}
+
 	const IMAGE_RESOURCE_DIRECTORY_ENTRY* entries_l1 =
 		reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY_ENTRY*>(root_dir + 1);
+
+	size_t entries_l1_offset = reinterpret_cast<const BYTE*>(entries_l1) - data;
+	size_t entries_l1_size = static_cast<size_t>(total_entries_l1) * sizeof(IMAGE_RESOURCE_DIRECTORY_ENTRY);
+	if (entries_l1_offset + entries_l1_size > data_size)
+	{
+		return entries;
+	}
 
 	for (WORD i = 0; i < total_entries_l1; ++i)
 	{
@@ -1082,8 +1210,12 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 			{
 				const WORD* name_ptr = reinterpret_cast<const WORD*>(resource_base + name_offset);
 				WORD name_len = *name_ptr;
-				const wchar_t* name_chars = reinterpret_cast<const wchar_t*>(name_ptr + 1);
+				if (name_len > 256)
+				{
+					name_len = 256;
+				}
 
+				const wchar_t* name_chars = reinterpret_cast<const wchar_t*>(name_ptr + 1);
 				for (WORD c = 0; c < name_len && resource_base_offset + name_offset + 2 + c * 2 < data_size; ++c)
 				{
 					type_name += static_cast<char>(name_chars[c]);
@@ -1096,18 +1228,34 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 		}
 
 		if (!type_entry.DataIsDirectory)
+		{
 			continue;
+		}
 
 		DWORD type_dir_offset = type_entry.OffsetToDirectory;
 		if (resource_base_offset + type_dir_offset + sizeof(IMAGE_RESOURCE_DIRECTORY) > data_size)
+		{
 			continue;
+		}
 
 		const IMAGE_RESOURCE_DIRECTORY* type_dir =
 			reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY*>(resource_base + type_dir_offset);
 
 		WORD total_entries_l2 = type_dir->NumberOfNamedEntries + type_dir->NumberOfIdEntries;
+		if (total_entries_l2 > MAX_RESOURCE_ENTRIES)
+		{
+			continue;
+		}
+
 		const IMAGE_RESOURCE_DIRECTORY_ENTRY* entries_l2 =
 			reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY_ENTRY*>(type_dir + 1);
+
+		size_t entries_l2_offset = reinterpret_cast<const BYTE*>(entries_l2) - data;
+		size_t entries_l2_size = static_cast<size_t>(total_entries_l2) * sizeof(IMAGE_RESOURCE_DIRECTORY_ENTRY);
+		if (entries_l2_offset + entries_l2_size > data_size)
+		{
+			continue;
+		}
 
 		for (WORD j = 0; j < total_entries_l2; ++j)
 		{
@@ -1123,8 +1271,12 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 				{
 					const WORD* name_ptr = reinterpret_cast<const WORD*>(resource_base + name_offset);
 					WORD name_len = *name_ptr;
-					const wchar_t* name_chars = reinterpret_cast<const wchar_t*>(name_ptr + 1);
+					if (name_len > 256)
+					{
+						name_len = 256;
+					}
 
+					const wchar_t* name_chars = reinterpret_cast<const wchar_t*>(name_ptr + 1);
 					for (WORD c = 0; c < name_len && resource_base_offset + name_offset + 2 + c * 2 < data_size; ++c)
 					{
 						resource_name += static_cast<char>(name_chars[c]);
@@ -1137,38 +1289,58 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 			}
 
 			if (!name_entry.DataIsDirectory)
+			{
 				continue;
+			}
 
 			DWORD name_dir_offset = name_entry.OffsetToDirectory;
 			if (resource_base_offset + name_dir_offset + sizeof(IMAGE_RESOURCE_DIRECTORY) > data_size)
+			{
 				continue;
+			}
 
 			const IMAGE_RESOURCE_DIRECTORY* name_dir =
 				reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY*>(resource_base + name_dir_offset);
 
 			WORD total_entries_l3 = name_dir->NumberOfNamedEntries + name_dir->NumberOfIdEntries;
+			if (total_entries_l3 > MAX_RESOURCE_ENTRIES)
+			{
+				continue;
+			}
+
 			const IMAGE_RESOURCE_DIRECTORY_ENTRY* entries_l3 =
 				reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY_ENTRY*>(name_dir + 1);
+
+			size_t entries_l3_offset = reinterpret_cast<const BYTE*>(entries_l3) - data;
+			size_t entries_l3_size = static_cast<size_t>(total_entries_l3) * sizeof(IMAGE_RESOURCE_DIRECTORY_ENTRY);
+			if (entries_l3_offset + entries_l3_size > data_size)
+			{
+				continue;
+			}
 
 			for (WORD k = 0; k < total_entries_l3; ++k)
 			{
 				const IMAGE_RESOURCE_DIRECTORY_ENTRY& lang_entry = entries_l3[k];
 
 				if (lang_entry.DataIsDirectory)
+				{
 					continue;
+				}
 
 				DWORD data_entry_offset = lang_entry.OffsetToData;
 				if (resource_base_offset + data_entry_offset + sizeof(IMAGE_RESOURCE_DATA_ENTRY) > data_size)
+				{
 					continue;
+				}
 
 				const IMAGE_RESOURCE_DATA_ENTRY* data_entry =
 					reinterpret_cast<const IMAGE_RESOURCE_DATA_ENTRY*>(resource_base + data_entry_offset);
 
 				ResourceEntry entry{};
 				entry.type_id = type_id;
-				entry.type_name = std::move(type_name);
+				entry.type_name = type_name;
 				entry.resource_id = resource_id;
-				entry.resource_name = std::move(resource_name);
+				entry.resource_name = resource_name;
 				entry.language_id = static_cast<WORD>(lang_entry.Id);
 				entry.data_rva = data_entry->OffsetToData;
 				entry.data_size = data_entry->Size;
@@ -1176,6 +1348,9 @@ std::vector<ResourceEntry> PE::_Resources::GetAll() const noexcept
 				entry.code_page = data_entry->CodePage;
 
 				entries.push_back(std::move(entry));
+
+				if (entries.size() > 65536)
+					return entries;
 			}
 		}
 	}
@@ -1194,12 +1369,20 @@ std::vector<WORD> PE::_Resources::GetTypeIds() const noexcept
 	if (!root_dir)
 		return types;
 
-	auto dir = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_RESOURCE);
-	DWORD resource_base_offset = m_image->Utils().RvaToOffset(dir->VirtualAddress);
+	const BYTE* data = m_image->Data().data();
+	size_t data_size = m_image->Data().size();
 
 	WORD total_entries = root_dir->NumberOfNamedEntries + root_dir->NumberOfIdEntries;
 	const IMAGE_RESOURCE_DIRECTORY_ENTRY* entries =
 		reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY_ENTRY*>(root_dir + 1);
+
+	size_t entries_offset = reinterpret_cast<const BYTE*>(entries) - data;
+	size_t entries_size = static_cast<size_t>(total_entries) * sizeof(IMAGE_RESOURCE_DIRECTORY_ENTRY);
+
+	if (entries_offset + entries_size > data_size)
+	{
+		return types;
+	}
 
 	types.reserve(total_entries);
 
@@ -1642,7 +1825,7 @@ bool PE::_RichHeader::ValidateChecksum() const noexcept
 	for (const auto& entry : entries)
 	{
 		DWORD comp_id = (static_cast<DWORD>(entry.product_id) << 16) | entry.build_id;
-		DWORD rot = entry.use_count % 32; 
+		DWORD rot = entry.use_count % 32;
 		calc_checksum += (comp_id << rot) | (comp_id >> (32 - rot));
 	}
 
@@ -2139,14 +2322,39 @@ std::vector<DebugEntry> PE::_Debug::GetAll() noexcept
 
 	std::vector<DebugEntry> entries;
 	auto directory = m_image->DataDirectory().Get(IMAGE_DIRECTORY_ENTRY_DEBUG);
-	for (size_t i = 0; i < directory->Size / sizeof(IMAGE_DEBUG_DIRECTORY); i++)
+	if (!directory)
 	{
-		auto debug_entry = reinterpret_cast<const IMAGE_DEBUG_DIRECTORY*>(m_image->Data().data() + m_image->Utils().RvaToOffset(directory->VirtualAddress) + i * sizeof(IMAGE_DEBUG_DIRECTORY));
+		return {};
+	}
+
+	DWORD debug_offset = m_image->Utils().RvaToOffset(directory->VirtualAddress);
+	if (debug_offset == 0)
+	{
+		return {};
+	}
+
+	const BYTE* data = m_image->Data().data();
+	size_t data_size = m_image->Data().size();
+	size_t entry_count = directory->Size / sizeof(IMAGE_DEBUG_DIRECTORY);
+
+	for (size_t i = 0; i < entry_count; i++)
+	{
+		size_t entry_offset = debug_offset + i * sizeof(IMAGE_DEBUG_DIRECTORY);
+		if (entry_offset + sizeof(IMAGE_DEBUG_DIRECTORY) > data_size)
+		{
+			break;
+		}
+
+		auto debug_entry = reinterpret_cast<const IMAGE_DEBUG_DIRECTORY*>(data + entry_offset);
 		DebugEntry entry{};
 		entry.type = static_cast<WORD>(debug_entry->Type);
 		entry.size = debug_entry->SizeOfData;
 		entry.address_offset = debug_entry->PointerToRawData;
-		entry.address_rva = debug_entry->AddressOfRawData;
+
+		if (debug_entry->AddressOfRawData < data_size)
+		{
+			entry.address_rva = debug_entry->AddressOfRawData;
+		}
 
 		entries.push_back(entry);
 	}

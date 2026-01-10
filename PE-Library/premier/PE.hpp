@@ -91,25 +91,25 @@ constexpr WORD IMAGE_DIRECTORY_ENTRY_IAT = 12;
 constexpr WORD IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT = 13;
 constexpr WORD IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR = 14;
 
-constexpr WORD IMAGE_DEBUG_TYPE_UNKNOWN			= 0;
-constexpr WORD IMAGE_DEBUG_TYPE_COFF			= 1;
-constexpr WORD IMAGE_DEBUG_TYPE_CODEVIEW		= 2;
-constexpr WORD IMAGE_DEBUG_TYPE_FPO				= 3;
-constexpr WORD IMAGE_DEBUG_TYPE_MISC			= 4;
-constexpr WORD IMAGE_DEBUG_TYPE_EXCEPTION		= 5;
-constexpr WORD IMAGE_DEBUG_TYPE_FIXUP			= 6;
-constexpr WORD IMAGE_DEBUG_TYPE_OMAP_TO_SRC	    = 7;
-constexpr WORD IMAGE_DEBUG_TYPE_OMAP_FROM_SRC   = 8;
-constexpr WORD IMAGE_DEBUG_TYPE_BORLAND			= 9;
-constexpr WORD IMAGE_DEBUG_TYPE_RESERVED10		= 10;
-constexpr WORD IMAGE_DEBUG_TYPE_BBT				= IMAGE_DEBUG_TYPE_RESERVED10;
-constexpr WORD IMAGE_DEBUG_TYPE_CLSID			= 11;
-constexpr WORD IMAGE_DEBUG_TYPE_VC_FEATURE		= 12;
-constexpr WORD IMAGE_DEBUG_TYPE_POGO			= 13;
-constexpr WORD IMAGE_DEBUG_TYPE_ILTCG			= 14;
-constexpr WORD IMAGE_DEBUG_TYPE_MPX				= 15;
-constexpr WORD IMAGE_DEBUG_TYPE_REPRO			= 16;
-constexpr WORD IMAGE_DEBUG_TYPE_SPGO			= 18;
+constexpr WORD IMAGE_DEBUG_TYPE_UNKNOWN = 0;
+constexpr WORD IMAGE_DEBUG_TYPE_COFF = 1;
+constexpr WORD IMAGE_DEBUG_TYPE_CODEVIEW = 2;
+constexpr WORD IMAGE_DEBUG_TYPE_FPO = 3;
+constexpr WORD IMAGE_DEBUG_TYPE_MISC = 4;
+constexpr WORD IMAGE_DEBUG_TYPE_EXCEPTION = 5;
+constexpr WORD IMAGE_DEBUG_TYPE_FIXUP = 6;
+constexpr WORD IMAGE_DEBUG_TYPE_OMAP_TO_SRC = 7;
+constexpr WORD IMAGE_DEBUG_TYPE_OMAP_FROM_SRC = 8;
+constexpr WORD IMAGE_DEBUG_TYPE_BORLAND = 9;
+constexpr WORD IMAGE_DEBUG_TYPE_RESERVED10 = 10;
+constexpr WORD IMAGE_DEBUG_TYPE_BBT = IMAGE_DEBUG_TYPE_RESERVED10;
+constexpr WORD IMAGE_DEBUG_TYPE_CLSID = 11;
+constexpr WORD IMAGE_DEBUG_TYPE_VC_FEATURE = 12;
+constexpr WORD IMAGE_DEBUG_TYPE_POGO = 13;
+constexpr WORD IMAGE_DEBUG_TYPE_ILTCG = 14;
+constexpr WORD IMAGE_DEBUG_TYPE_MPX = 15;
+constexpr WORD IMAGE_DEBUG_TYPE_REPRO = 16;
+constexpr WORD IMAGE_DEBUG_TYPE_SPGO = 18;
 
 constexpr WORD IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS = 20;
 
@@ -811,7 +811,7 @@ namespace PE
 		[[nodiscard]] DWORD GetRawSize(bool region_size) const noexcept;
 		[[nodiscard]] static std::string_view ProductIdToString(WORD product_id) noexcept;
 	};
-	
+
 	/*
 	* @brief Do not instantiate this class directly. Use Image::Debug() instead!
 	*/
@@ -859,7 +859,11 @@ namespace PE
 	class Image
 	{
 	public:
-		Image(const char* path);
+		Image(const char* path);						   // From file path
+		Image(const BYTE* data, size_t size);              // Raw pointer + size
+		Image(std::vector<BYTE>&& data);                   // Move from vector
+		Image(const std::vector<BYTE>& data);              // Copy from vector
+
 		~Image() = default;
 
 		[[nodiscard]] bool SaveImage(const char* path) const noexcept;
@@ -1058,6 +1062,27 @@ namespace PE
 		return dir && dir->VirtualAddress != 0 && dir->Size != 0;
 	}
 
+
+	template<typename T>
+	inline const T* PE::_DataDirectory::GetData(WORD index) const noexcept
+	{
+		if (!m_image)
+			return nullptr;
+
+		auto dir = Get(index);
+		if (!dir || dir->VirtualAddress == 0)
+			return nullptr;
+
+		DWORD offset = m_image->Utils().RvaToOffset(dir->VirtualAddress);
+		if (offset == 0)
+			return nullptr;
+
+		if (offset + sizeof(T) > m_image->Data().size())
+			return nullptr;
+
+		return reinterpret_cast<const T*>(m_image->Data().data() + offset);
+	}
+
 	// Imports
 
 	inline bool PE::_Imports::Present() const noexcept
@@ -1161,6 +1186,22 @@ namespace PE
 		for (const auto& exp : all)
 		{
 			if (!exp.name.empty() && _stricmp(exp.name.data(), name) == 0)
+			{
+				return exp;
+			}
+		}
+
+		return empty;
+	}
+
+	inline ExportFunction PE::_Exports::ByOrdinal(WORD ordinal) const noexcept
+	{
+		ExportFunction empty{};
+
+		auto all = All();
+		for (const auto& exp : all)
+		{
+			if (exp.ordinal == ordinal)
 			{
 				return exp;
 			}
