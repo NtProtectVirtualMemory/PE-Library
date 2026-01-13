@@ -2,6 +2,9 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="fuzzer.cpp" />
-    <ClCompile Include="..\PE-Library\premier\PE.cpp" />
+    <ClCompile Include="..\PE-Library\premier\image_impl.cpp" />
+    <ClCompile Include="..\PE-Library\premier\sections_impl.cpp" />
+    <ClCompile Include="..\PE-Library\premier\rich_impl.cpp" />
+    <ClCompile Include="..\PE-Library\premier\directories_impl.cpp" />
   </ItemGroup>
 </Project>

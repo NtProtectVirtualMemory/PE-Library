@@ -156,7 +156,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\PE-Library\premier\PE.cpp" />
+    <ClCompile Include="..\PE-Library\premier\directories_impl.cpp" />
+    <ClCompile Include="..\PE-Library\premier\image_impl.cpp" />
+    <ClCompile Include="..\PE-Library\premier\rich_impl.cpp" />
+    <ClCompile Include="..\PE-Library\premier\sections_impl.cpp" />
     <ClCompile Include="fuzzer.cpp" />
   </ItemGroup>
   <ItemGroup>
