@@ -11,6 +11,7 @@
 
 #include "image.hpp"
 #include "sections.hpp"
+#include <windows.h>
 
 PE::ImageSections::ImageSections(Image* image) : m_image(image)
 {

@@ -459,15 +459,3 @@ namespace PE
 		std::uint32_t   Characteristics;
 	};
 }
-
-// Defines
-#ifndef FIELD_OFFSET
-#define FIELD_OFFSET(type, field) ((std::uint32_t)(std::uint32_t*)&(((type *)0)->field))
-#endif
-
-#define IMAGE_FIRST_SECTION(ntheader) \
-    ((PE::ImageSectionHeader*) \
-        ((const uint8_t*)(ntheader) + \
-         sizeof(std::uint32_t) + \
-         sizeof(PE::ImageFileHeader) + \
-         (ntheader)->FileHeader.SizeOfOptionalHeader))
