@@ -22,23 +22,6 @@ The Following Features this Library currently offers will be listed below
 - RVA, VA, and file offset conversion utilities
 - Debug directory parsing
 - Unicode and ASCII String extraction
-- PE Packer detection
-```
-
-## Current Project Structure
-
-```
-PE Fuzzer/
-├── Corpus/
-│   └── 900+ Samples        # Testing Samples
-├── pe-fuzzer.dict          # Fuzzer dictionary
-└── main.cpp                # Entry of the fuzzer
-
-PE Library/
-├── premier/
-│   ├── PE.hpp              # Main library header
-│   ├── PE.cpp              # Main library implementation
-└── example.cpp             # Usage examples
 ```
 
 ## Getting Started
@@ -73,7 +56,7 @@ git clone https://github.com/NtProtectVirtualMemory/PE-Library.git
 
 ```cpp
 #include <cstdio>
-#include "PE.hpp"
+#include "premier/image.hpp"
 
 int main() {
     PE::Image image("path\to\file.exe");
