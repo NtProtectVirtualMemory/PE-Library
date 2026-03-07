@@ -1,7 +1,7 @@
 
 # Premier PE Library
 
-A modern C++20 library for parsing and manipulating Windows Portable Executable (PE) files.
+A modern C++ library for parsing and manipulating Windows Portable Executable (PE) files.
 
 ## Overview
 
@@ -28,7 +28,7 @@ The Following Features this Library currently offers will be listed below
 
 ### Prerequisites
 
-- Visual Studio 2022 (or later with C++20 support)
+- Visual Studio 2022 (or later with C++17 support)
 - Windows SDK 10.0
 - Platform Toolset v143 or later
 
@@ -75,9 +75,9 @@ What we **accept**:
 2. Fork the repository and create your branch from `main` 
 3. If possible, add or extend tests, this is highly appreciated.
 4. Make sure the code follows the current style: 
-   - Use C++20 features when it improves readability/safety 
+   - Use C++ features when it improves readability/safety 
    - Keep public API clean & minimal
-    - Use `snake_case` for private members/functions, `PascalCase` for public types
+   - Use `snake_case` for private members/functions, `PascalCase` for public types
  5. Make small, focused pull requests with clear titles & description
 
 ## License
