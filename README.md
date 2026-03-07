@@ -30,32 +30,11 @@ The Following Features this Library currently offers will be listed below
 
 - Visual Studio 2022 (or later with C++20 support)
 - Windows SDK 10.0
-- Platform Toolset v145 or later
-
-### Building
-
-1. Clone the repository:
-```bash
-git clone https://github.com/NtProtectVirtualMemory/PE-Library.git
-```
-
-2. Open `PE Library.slnx` in Visual Studio
-
-3. Select the correct configuration: 
-   - **Release**
-   - **x64**
-
-4. Build the solution (Ctrl+Shift+B)
-
-### Output Directories
-
-- Binaries:  `bin/PE Library/{Platform}/{Configuration}/`
-- Intermediates: `bin/intermediates/PE Library/{Platform}/{Configuration}/`
+- Platform Toolset v143 or later
 
 ### Basic Usage
 
 ```cpp
-#include <cstdio>
 #include "pe-lib/image.hpp"
 
 int main() {
