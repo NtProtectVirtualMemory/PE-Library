@@ -1,4 +1,3 @@
-
 #include "image.hpp"
 #include "rich.hpp"
 #include "sections.hpp"

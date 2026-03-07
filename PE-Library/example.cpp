@@ -1,10 +1,10 @@
 #include <cstdio>
 #include <thread>
 
-#include "premier/image.hpp"
-// #include "premier/rich.hpp"
-// #include "premier/sections.hpp"
-// #include "premier/directories.hpp"
+#include "pe-lib/image.hpp"
+// #include "pe-lib/rich.hpp"
+// #include "pe-lib/sections.hpp"
+// #include "pe-lib/directories.hpp"
 
 template <typename Rep, typename Period>
 __forceinline static void wait(std::chrono::duration<Rep, Period> duration) noexcept

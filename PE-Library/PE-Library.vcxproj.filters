@@ -2,16 +2,16 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="example.cpp" />
-    <ClCompile Include="premier\image_impl.cpp" />
-    <ClCompile Include="premier\sections_impl.cpp" />
-    <ClCompile Include="premier\directories_impl.cpp" />
-    <ClCompile Include="premier\rich_impl.cpp" />
+    <ClCompile Include="pe-lib\image_impl.cpp" />
+    <ClCompile Include="pe-lib\sections_impl.cpp" />
+    <ClCompile Include="pe-lib\directories_impl.cpp" />
+    <ClCompile Include="pe-lib\rich_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="premier\image.hpp" />
-    <ClInclude Include="premier\sections.hpp" />
-    <ClInclude Include="premier\directories.hpp" />
-    <ClInclude Include="premier\rich.hpp" />
-    <ClInclude Include="premier\defs.hpp" />
+    <ClInclude Include="pe-lib\image.hpp" />
+    <ClInclude Include="pe-lib\sections.hpp" />
+    <ClInclude Include="pe-lib\directories.hpp" />
+    <ClInclude Include="pe-lib\rich.hpp" />
+    <ClInclude Include="pe-lib\defs.hpp" />
   </ItemGroup>
 </Project>
