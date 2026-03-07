@@ -56,7 +56,7 @@ git clone https://github.com/NtProtectVirtualMemory/PE-Library.git
 
 ```cpp
 #include <cstdio>
-#include "premier/image.hpp"
+#include "pe-lib/image.hpp"
 
 int main() {
     PE::Image image("path\to\file.exe");
