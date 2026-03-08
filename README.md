@@ -72,7 +72,7 @@ What we **accept**:
 ### How to contribute
 
 1. If you're fixing a bug or adding a feature, please **open an issue first** (unless it's a very obvious typo/doc fix) 
-2. Fork the repository and create your branch from `main` 
+2. Fork the repository and create your branch from `master` 
 3. If possible, add or extend tests, this is highly appreciated.
 4. Make sure the code follows the current style: 
    - Use C++ features when it improves readability/safety 

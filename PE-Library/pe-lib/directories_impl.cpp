@@ -80,7 +80,7 @@ std::vector<std::string_view> PE::Imports::GetImportedModules() const noexcept
 			break;
 		}
 
-		std::uint32_t name_offset = ImageUtils(m_image).RvaToOffset(desc->Name);
+		std::uint32_t name_offset = Utils(m_image).RvaToOffset(desc->Name);
 		if (name_offset != 0 && name_offset < data_size)
 		{
 			const char* name = reinterpret_cast<const char*>(data + name_offset);
@@ -123,7 +123,7 @@ std::vector<PE::ImportFunction> PE::Imports::FunctionFromModule(const char* dll_
 			break;
 		}
 
-		std::uint32_t name_offset = ImageUtils(m_image).RvaToOffset(desc->Name);
+		std::uint32_t name_offset = Utils(m_image).RvaToOffset(desc->Name);
 		if (name_offset == 0 || name_offset >= data_size)
 		{
 			desc_offset += sizeof(ImageImportDescriptor);
@@ -147,7 +147,7 @@ std::vector<PE::ImportFunction> PE::Imports::FunctionFromModule(const char* dll_
 		}
 
 		std::uint32_t thunk_rva = desc->OriginalFirstThunk ? desc->OriginalFirstThunk : desc->FirstThunk;
-		std::uint32_t thunk_offset = ImageUtils(m_image).RvaToOffset(thunk_rva);
+		std::uint32_t thunk_offset = Utils(m_image).RvaToOffset(thunk_rva);
 
 		if (thunk_offset == 0)
 		{
@@ -175,7 +175,7 @@ std::vector<PE::ImportFunction> PE::Imports::FunctionFromModule(const char* dll_
 				}
 				else
 				{
-					std::uint32_t hint_offset = ImageUtils(m_image).RvaToOffset(
+					std::uint32_t hint_offset = Utils(m_image).RvaToOffset(
 						static_cast<std::uint32_t>(thunk->u1.AddressOfData));
 
 					if (hint_offset != 0 && hint_offset + sizeof(ImageImportByName) <= data_size)
@@ -221,7 +221,7 @@ std::vector<PE::ImportFunction> PE::Imports::FunctionFromModule(const char* dll_
 				}
 				else
 				{
-					std::uint32_t hint_offset = ImageUtils(m_image).RvaToOffset(thunk->u1.AddressOfData);
+					std::uint32_t hint_offset = Utils(m_image).RvaToOffset(thunk->u1.AddressOfData);
 
 					if (hint_offset != 0 && hint_offset + sizeof(IMAGE_IMPORT_BY_NAME) <= data_size)
 					{
@@ -272,7 +272,7 @@ size_t PE::Imports::GetModuleCount() const noexcept
 	if (!dir || dir->Size < sizeof(ImageImportDescriptor))
 		return 0;
 
-	std::uint32_t imports_offset = ImageUtils(m_image).RvaToOffset(dir->VirtualAddress);
+	std::uint32_t imports_offset = Utils(m_image).RvaToOffset(dir->VirtualAddress);
 	if (imports_offset == 0)
 		return 0;
 
@@ -369,9 +369,9 @@ std::vector<PE::ExportFunction> PE::Exports::All() const noexcept
 	std::uint32_t export_dir_start = dir_entry ? dir_entry->VirtualAddress : 0;
 	std::uint32_t export_dir_end = dir_entry ? (dir_entry->VirtualAddress + dir_entry->Size) : 0;
 
-	std::uint32_t functions_offset = ImageUtils(m_image).RvaToOffset(exp_dir->AddressOfFunctions);
-	std::uint32_t names_offset = ImageUtils(m_image).RvaToOffset(exp_dir->AddressOfNames);
-	std::uint32_t ordinals_offset = ImageUtils(m_image).RvaToOffset(exp_dir->AddressOfNameOrdinals);
+	std::uint32_t functions_offset = Utils(m_image).RvaToOffset(exp_dir->AddressOfFunctions);
+	std::uint32_t names_offset = Utils(m_image).RvaToOffset(exp_dir->AddressOfNames);
+	std::uint32_t ordinals_offset = Utils(m_image).RvaToOffset(exp_dir->AddressOfNameOrdinals);
 
 	if (functions_offset == 0)
 	{
@@ -430,13 +430,13 @@ std::vector<PE::ExportFunction> PE::Exports::All() const noexcept
 		ExportFunction exp{};
 		exp.rva = func_rva;
 		exp.va = image_base + func_rva;
-		exp.file_offset = ImageUtils(m_image).RvaToOffset(func_rva);
+		exp.file_offset = Utils(m_image).RvaToOffset(func_rva);
 		exp.ordinal = static_cast<std::uint16_t>(i + exp_dir->Base);
 
 		if (func_rva >= export_dir_start && func_rva < export_dir_end)
 		{
 			exp.is_forwarded = true;
-			std::uint32_t forward_offset = ImageUtils(m_image).RvaToOffset(func_rva);
+			std::uint32_t forward_offset = Utils(m_image).RvaToOffset(func_rva);
 			if (forward_offset != 0 && forward_offset < data_size)
 			{
 				exp.forward_name = reinterpret_cast<const char*>(data + forward_offset);
@@ -451,7 +451,7 @@ std::vector<PE::ExportFunction> PE::Exports::All() const noexcept
 		if (names && ordinal_to_name_idx[i] != std::uint32_t(-1))
 		{
 			std::uint32_t name_idx = ordinal_to_name_idx[i];
-			std::uint32_t name_offset = ImageUtils(m_image).RvaToOffset(names[name_idx]);
+			std::uint32_t name_offset = Utils(m_image).RvaToOffset(names[name_idx]);
 			if (name_offset != 0 && name_offset < data_size)
 			{
 				exp.name = reinterpret_cast<const char*>(data + name_offset);
@@ -480,7 +480,7 @@ std::string_view PE::Exports::ModuleName() const noexcept
 	if (!exp_dir || exp_dir->Name == 0)
 		return {};
 
-	std::uint32_t name_offset = ImageUtils(m_image).RvaToOffset(exp_dir->Name);
+	std::uint32_t name_offset = Utils(m_image).RvaToOffset(exp_dir->Name);
 	if (name_offset == 0 || name_offset >= m_image->Data().size())
 		return {};
 
@@ -553,7 +553,7 @@ std::vector<PE::RelocationBlock> PE::Relocations::GetBlocks() const noexcept
 		return blocks;
 	}
 
-	std::uint32_t reloc_offset = ImageUtils(m_image).RvaToOffset(dir->VirtualAddress);
+	std::uint32_t reloc_offset = Utils(m_image).RvaToOffset(dir->VirtualAddress);
 	if (reloc_offset == 0)
 	{
 		return blocks;
@@ -622,7 +622,7 @@ std::vector<PE::RelocationBlock> PE::Relocations::GetBlocks() const noexcept
 			reloc_entry.type = type;
 			reloc_entry.rva = block->VirtualAddress + offset;
 
-			std::uint32_t file_offset = ImageUtils(m_image).RvaToOffset(reloc_entry.rva);
+			std::uint32_t file_offset = Utils(m_image).RvaToOffset(reloc_entry.rva);
 			if (file_offset != 0)
 			{
 				reloc_entry.file_offset = file_offset;
@@ -725,7 +725,7 @@ std::vector<PE::ResourceEntry> PE::Resources::GetAll() const noexcept
 		return entries;
 	}
 
-	std::uint32_t resource_base_offset = ImageUtils(m_image).RvaToOffset(dir->VirtualAddress);
+	std::uint32_t resource_base_offset = Utils(m_image).RvaToOffset(dir->VirtualAddress);
 	if (resource_base_offset == 0)
 	{
 		return entries;
@@ -907,7 +907,7 @@ std::vector<PE::ResourceEntry> PE::Resources::GetAll() const noexcept
 				entry.language_id = static_cast<std::uint16_t>(lang_entry.Id);
 				entry.data_rva = data_entry->OffsetToData;
 				entry.data_size = data_entry->Size;
-				entry.file_offset = ImageUtils(m_image).RvaToOffset(data_entry->OffsetToData);
+				entry.file_offset = Utils(m_image).RvaToOffset(data_entry->OffsetToData);
 				entry.code_page = data_entry->CodePage;
 
 				entries.push_back(std::move(entry));
@@ -1218,13 +1218,13 @@ std::vector<PE::TLSCallback> PE::TLS::GetCallbacks() const noexcept
 		return callbacks;
 	}
 
-	std::uint32_t callbacks_rva = ImageUtils(m_image).VaToRva(info.callbacks_va);
+	std::uint32_t callbacks_rva = Utils(m_image).VaToRva(info.callbacks_va);
 	if (callbacks_rva == 0)
 	{
 		return callbacks;
 	}
 
-	std::uint32_t callbacks_offset = ImageUtils(m_image).RvaToOffset(callbacks_rva);
+	std::uint32_t callbacks_offset = Utils(m_image).RvaToOffset(callbacks_rva);
 	if (callbacks_offset == 0)
 	{
 		return callbacks;
@@ -1247,8 +1247,8 @@ std::vector<PE::TLSCallback> PE::TLS::GetCallbacks() const noexcept
 
 			TLSCallback cb{};
 			cb.va = callback_va;
-			cb.rva = ImageUtils(m_image).VaToRva(callback_va);
-			cb.file_offset = ImageUtils(m_image).RvaToOffset(cb.rva);
+			cb.rva = Utils(m_image).VaToRva(callback_va);
+			cb.file_offset = Utils(m_image).RvaToOffset(cb.rva);
 
 			callbacks.push_back(cb);
 			callback_array++;
@@ -1267,8 +1267,8 @@ std::vector<PE::TLSCallback> PE::TLS::GetCallbacks() const noexcept
 
 			TLSCallback cb{};
 			cb.va = callback_va;
-			cb.rva = ImageUtils(m_image).VaToRva(callback_va);
-			cb.file_offset = ImageUtils(m_image).RvaToOffset(cb.rva);
+			cb.rva = Utils(m_image).VaToRva(callback_va);
+			cb.file_offset = Utils(m_image).RvaToOffset(cb.rva);
 
 			callbacks.push_back(cb);
 			callback_array++;
@@ -1292,13 +1292,13 @@ bool PE::TLS::HasCallbacks() const noexcept
 		return false;
 	}
 
-	std::uint32_t callbacks_rva = ImageUtils(m_image).VaToRva(info.callbacks_va);
+	std::uint32_t callbacks_rva = Utils(m_image).VaToRva(info.callbacks_va);
 	if (callbacks_rva == 0)
 	{
 		return false;
 	}
 
-	std::uint32_t callbacks_offset = ImageUtils(m_image).RvaToOffset(callbacks_rva);
+	std::uint32_t callbacks_offset = Utils(m_image).RvaToOffset(callbacks_rva);
 	if (callbacks_offset == 0 || callbacks_offset >= m_image->Data().size())
 	{
 		return false;
@@ -1346,7 +1346,7 @@ std::vector<PE::DebugEntry> PE::Debug::GetAll() noexcept
 		return {};
 	}
 
-	std::uint32_t debug_offset = ImageUtils(m_image).RvaToOffset(directory->VirtualAddress);
+	std::uint32_t debug_offset = Utils(m_image).RvaToOffset(directory->VirtualAddress);
 	if (debug_offset == 0)
 	{
 		return {};

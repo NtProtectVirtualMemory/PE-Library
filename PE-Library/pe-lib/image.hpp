@@ -101,14 +101,12 @@ namespace PE
 		}
 	};
 
-	class ImageUtils
+	class Utils
 	{
 	public:
-		ImageUtils(Image* image) : m_image(image) {}
+		Utils(Image* image) : m_image(image) {}
 
-		bool StripPDBInfo() const noexcept;
 		bool PatternScan(const char* pattern, const char* mask, uintptr_t* out) const noexcept;
-		std::uint64_t RvaToVa(std::uint32_t rva) const noexcept;
 		std::uint32_t RvaToOffset(std::uint32_t rva) const noexcept;
 		std::uint32_t VaToRva(std::uint64_t va) const noexcept;
 		std::uint32_t OffsetToRva(std::uint32_t file_offset) const noexcept;

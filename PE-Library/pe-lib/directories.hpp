@@ -26,7 +26,7 @@ namespace PE
 				return nullptr;
 			}
 
-			std::uint32_t offset = ImageUtils(m_image).RvaToOffset(dir->VirtualAddress);
+			std::uint32_t offset = Utils(m_image).RvaToOffset(dir->VirtualAddress);
 			if (offset == 0)
 			{
 				return nullptr;

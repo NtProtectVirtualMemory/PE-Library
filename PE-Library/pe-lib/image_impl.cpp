@@ -237,7 +237,7 @@ bool PE::ImageUtils::StripPDBInfo() const noexcept
 }
 */
 
-bool PE::ImageUtils::PatternScan(const char* pattern, const char* mask, uintptr_t* out) const noexcept
+bool PE::Utils::PatternScan(const char* pattern, const char* mask, uintptr_t* out) const noexcept
 {
 	size_t str_len = strlen(mask);
 	if (str_len != strlen(pattern))
@@ -267,7 +267,7 @@ bool PE::ImageUtils::PatternScan(const char* pattern, const char* mask, uintptr_
 	return false;
 }
 
-std::uint32_t PE::ImageUtils::RvaToOffset(std::uint32_t rva) const noexcept
+std::uint32_t PE::Utils::RvaToOffset(std::uint32_t rva) const noexcept
 {
 	if (!m_image)
 		return 0;
@@ -324,7 +324,7 @@ std::uint32_t PE::ImageUtils::RvaToOffset(std::uint32_t rva) const noexcept
 	return 0;
 }
 
-std::uint32_t PE::ImageUtils::VaToRva(std::uint64_t va) const noexcept
+std::uint32_t PE::Utils::VaToRva(std::uint64_t va) const noexcept
 {
 	if (!m_image)
 		return 0;
@@ -355,7 +355,7 @@ std::uint32_t PE::ImageUtils::VaToRva(std::uint64_t va) const noexcept
 	return static_cast<std::uint32_t>(va - image_base);
 }
 
-std::uint32_t PE::ImageUtils::OffsetToRva(std::uint32_t file_offset) const noexcept
+std::uint32_t PE::Utils::OffsetToRva(std::uint32_t file_offset) const noexcept
 {
 	if (!m_image)
 	{
@@ -412,7 +412,7 @@ std::uint32_t PE::ImageUtils::OffsetToRva(std::uint32_t file_offset) const noexc
 	return 0;
 }
 
-std::vector<std::string_view> PE::ImageUtils::GetAsciiStrings(std::uint32_t min_length) const noexcept
+std::vector<std::string_view> PE::Utils::GetAsciiStrings(std::uint32_t min_length) const noexcept
 {
 	std::vector<std::string_view> strings;
 
@@ -444,7 +444,7 @@ std::vector<std::string_view> PE::ImageUtils::GetAsciiStrings(std::uint32_t min_
 	return strings;
 }
 
-std::vector<std::wstring_view> PE::ImageUtils::GetUnicodeStrings(std::uint32_t min_length) const noexcept
+std::vector<std::wstring_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_length) const noexcept
 {
 	std::vector<std::wstring_view> strings;
 
