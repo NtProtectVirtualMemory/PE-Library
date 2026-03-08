@@ -1018,7 +1018,7 @@ std::string_view PE::Resources::GetManifest() const noexcept
 		return {};
 	}
 
-	auto manifests = GetByType(RT_MANIFEST);
+	auto manifests = GetByType(resource_manifest);
 	if (manifests.empty())
 	{
 		return {};
@@ -1043,7 +1043,7 @@ std::optional<PE::VersionInfo> PE::Resources::GetVersionInfo() const noexcept
 		return std::nullopt;
 	}
 
-	auto versions = GetByType(RT_VERSION);
+	auto versions = GetByType(resource_version);
 	if (versions.empty())
 	{
 		return std::nullopt;
@@ -1058,13 +1058,13 @@ std::optional<PE::VersionInfo> PE::Resources::GetVersionInfo() const noexcept
 
 	const std::uint8_t* version_data = m_image->Data().data() + version_entry.file_offset;
 
-	constexpr std::uint32_t VS_FFI_SIGNATURE = 0xFEEF04BD; // Had to Research this //https://crashpad.chromium.org/doxygen/verrsrc_8h.html#a323849bf0740c974e68b19ae551e1a18
+	constexpr std::uint32_t vs_ffi_sig = 0xFEEF04BD; // Had to Research this //https://crashpad.chromium.org/doxygen/verrsrc_8h.html#a323849bf0740c974e68b19ae551e1a18
 	const std::uint32_t* search_ptr = reinterpret_cast<const std::uint32_t*>(version_data);
 	const std::uint32_t* search_end = reinterpret_cast<const std::uint32_t*>(version_data + version_entry.data_size - sizeof(std::uint32_t) * 13);
 
 	while (search_ptr < search_end)
 	{
-		if (*search_ptr == VS_FFI_SIGNATURE)
+		if (*search_ptr == vs_ffi_sig)
 		{
 
 			VersionInfo info{};
@@ -1101,35 +1101,35 @@ std::string_view PE::Resources::TypeToString(std::uint16_t type_id) noexcept
 {
 	switch (type_id)
 	{
-	case RT_CURSOR:
+	case resource_cursor:
 		return "CURSOR";
-	case RT_BITMAP:
+	case resource_bitmap:
 		return "BITMAP";
-	case RT_ICON:
+	case resource_icon:
 		return "ICON";
-	case RT_MENU:
+	case resource_menu:
 		return "MENU";
-	case RT_DIALOG:
+	case resource_dialog:
 		return "DIALOG";
-	case RT_STRING:
+	case resource_string:
 		return "STRING";
-	case RT_FONTDIR:
+	case resource_fontdir:
 		return "FONTDIR";
-	case RT_FONT:
+	case resource_font:
 		return "FONT";
-	case RT_ACCELERATOR:
+	case resource_accelerator:
 		return "ACCELERATOR";
-	case RT_RCDATA:
+	case resource_rcdata:
 		return "RCDATA";
-	case RT_MESSAGETABLE:
+	case resource_messagetable:
 		return "MESSAGETABLE";
-	case RT_GROUP_CURSOR:
+	case resource_group_cursor:
 		return "GROUP_CURSOR";
-	case RT_GROUP_ICON:
+	case resource_group_icon:
 		return "GROUP_ICON";
-	case RT_VERSION:
+	case resource_version:
 		return "VERSION";
-	case RT_MANIFEST:
+	case resource_manifest:
 		return "MANIFEST";
 	default:
 		return "UNKNOWN";

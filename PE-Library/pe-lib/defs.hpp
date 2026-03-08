@@ -2,76 +2,24 @@
 
 #include <vector>
 #include <cstdint>
+#include <windows.h>
 #include <string_view>
 
-constexpr std::uint32_t	IMAGE_NT_SIGNATURE = 0x4550; // PE\0\0
-constexpr std::uint16_t	IMAGE_DOS_SIGNATURE = 0x5A4D; // MZ
-constexpr std::uint16_t	IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10b; // PE32
-constexpr std::uint16_t	IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20b; // PE32+ (64-bit)
-constexpr std::uint16_t	IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16;
-constexpr std::uint16_t	IMAGE_SIZEOF_SHORT_NAME = 8;
-constexpr std::uint32_t IMAGE_ORDINAL_FLAG32 = 0x80000000;
-constexpr std::uint64_t IMAGE_ORDINAL_FLAG64 = 0x8000000000000000ULL;
-
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_EXPORT = 0;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_IMPORT = 1;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_RESOURCE = 2;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_EXCEPTION = 3;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_SECURITY = 4;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_BASERELOC = 5;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_DEBUG = 6;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_ARCHITECTURE = 7;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_GLOBALPTR = 8;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_TLS = 9;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG = 10;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT = 11;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_IAT = 12;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT = 13;
-constexpr std::uint16_t IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR = 14;
-
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_UNKNOWN = 0;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_COFF = 1;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_CODEVIEW = 2;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_FPO = 3;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_MISC = 4;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_EXCEPTION = 5;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_FIXUP = 6;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_OMAP_TO_SRC = 7;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_OMAP_FROM_SRC = 8;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_BORLAND = 9;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_RESERVED10 = 10;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_BBT = IMAGE_DEBUG_TYPE_RESERVED10;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_CLSID = 11;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_VC_FEATURE = 12;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_POGO = 13;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_ILTCG = 14;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_MPX = 15;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_REPRO = 16;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_SPGO = 18;
-constexpr std::uint16_t IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS = 20;
-
-constexpr std::uint16_t IMAGE_REL_BASED_ABSOLUTE = 0;   // Padding (skip)
-constexpr std::uint16_t IMAGE_REL_BASED_HIGH = 1;   // High 16 bits
-constexpr std::uint16_t IMAGE_REL_BASED_LOW = 2;   // Low 16 bits
-constexpr std::uint16_t IMAGE_REL_BASED_HIGHLOW = 3;   // Full 32-bit (x86)
-constexpr std::uint16_t IMAGE_REL_BASED_HIGHADJ = 4;   // High 16 + adjust
-constexpr std::uint16_t IMAGE_REL_BASED_DIR64 = 10;  // Full 64-bit (x64)
-
-constexpr std::uint16_t RT_CURSOR = 1;
-constexpr std::uint16_t RT_BITMAP = 2;
-constexpr std::uint16_t RT_ICON = 3;
-constexpr std::uint16_t RT_MENU = 4;
-constexpr std::uint16_t RT_DIALOG = 5;
-constexpr std::uint16_t RT_STRING = 6;
-constexpr std::uint16_t RT_FONTDIR = 7;
-constexpr std::uint16_t RT_FONT = 8;
-constexpr std::uint16_t RT_ACCELERATOR = 9;
-constexpr std::uint16_t RT_RCDATA = 10;
-constexpr std::uint16_t RT_MESSAGETABLE = 11;
-constexpr std::uint16_t RT_GROUP_CURSOR = 12;
-constexpr std::uint16_t RT_GROUP_ICON = 14;
-constexpr std::uint16_t RT_VERSION = 16;
-constexpr std::uint16_t RT_MANIFEST = 24;
+constexpr std::uint16_t resource_cursor = 1;
+constexpr std::uint16_t resource_bitmap = 2;
+constexpr std::uint16_t resource_icon = 3;
+constexpr std::uint16_t resource_menu = 4;
+constexpr std::uint16_t resource_dialog = 5;
+constexpr std::uint16_t resource_string = 6;
+constexpr std::uint16_t resource_fontdir = 7;
+constexpr std::uint16_t resource_font = 8;
+constexpr std::uint16_t resource_accelerator = 9;
+constexpr std::uint16_t resource_rcdata = 10;
+constexpr std::uint16_t resource_messagetable = 11;
+constexpr std::uint16_t resource_group_cursor = 12;
+constexpr std::uint16_t resource_group_icon = 14;
+constexpr std::uint16_t resource_version = 16;
+constexpr std::uint16_t resource_manifest = 24;
 
 namespace PE
 {

@@ -1,7 +1,7 @@
 
 # Premier PE Library
 
-A modern C++20 library for parsing and manipulating Windows Portable Executable (PE) files.
+A modern C++ library for parsing and manipulating Windows Portable Executable (PE) files.
 
 ## Overview
 
@@ -28,35 +28,14 @@ The Following Features this Library currently offers will be listed below
 
 ### Prerequisites
 
-- Visual Studio 2022 (or later with C++20 support)
+- Visual Studio 2022 (or later with C++17 support)
 - Windows SDK 10.0
-- Platform Toolset v145 or later
-
-### Building
-
-1. Clone the repository:
-```bash
-git clone https://github.com/NtProtectVirtualMemory/PE-Library.git
-```
-
-2. Open `PE Library.slnx` in Visual Studio
-
-3. Select the correct configuration: 
-   - **Release**
-   - **x64**
-
-4. Build the solution (Ctrl+Shift+B)
-
-### Output Directories
-
-- Binaries:  `bin/PE Library/{Platform}/{Configuration}/`
-- Intermediates: `bin/intermediates/PE Library/{Platform}/{Configuration}/`
+- Platform Toolset v143 or later
 
 ### Basic Usage
 
 ```cpp
-#include <cstdio>
-#include "premier/image.hpp"
+#include "pe-lib/image.hpp"
 
 int main() {
     PE::Image image("path\to\file.exe");
@@ -96,9 +75,9 @@ What we **accept**:
 2. Fork the repository and create your branch from `main` 
 3. If possible, add or extend tests, this is highly appreciated.
 4. Make sure the code follows the current style: 
-   - Use C++20 features when it improves readability/safety 
+   - Use C++ features when it improves readability/safety 
    - Keep public API clean & minimal
-    - Use `snake_case` for private members/functions, `PascalCase` for public types
+   - Use `snake_case` for private members/functions, `PascalCase` for public types
  5. Make small, focused pull requests with clear titles & description
 
 ## License
