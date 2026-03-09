@@ -1,11 +1,11 @@
 
-# Premier PE Library
+# PE Library
 
 A modern C++ library for parsing and manipulating Windows Portable Executable (PE) files.
 
 ## Overview
 
-Premier PE Library provides a clean interface for working with Windows PE file formats. The library is designed to handle DOS headers, NT headers, Sections, Data directories and more with a focus on simplicity and performance.
+This Library provides a clean interface for working with Windows PE file formats. The library is designed to handle DOS headers, NT headers, Sections, Data directories and more with a focus on simplicity and performance.
 
 ## Features
 
