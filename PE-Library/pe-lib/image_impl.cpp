@@ -1,4 +1,5 @@
 #include "image.hpp"
+#include "sections.hpp"
 
 PE::Image::Image(const char* path)
 {
@@ -33,7 +34,7 @@ PE::Image::Image(const std::vector<uint8_t> data)
 	}
 }
 
-PE::Image::Image(const std::uint8_t * data, size_t size) 
+PE::Image::Image(const std::uint8_t* data, size_t size)
 	: m_data(data, data + size)
 {
 	if (ValidateImage())
@@ -417,27 +418,55 @@ std::vector<std::string_view> PE::Utils::GetAsciiStrings(std::uint32_t min_lengt
 	std::vector<std::string_view> strings;
 
 	if (!m_image || m_image->Data().empty())
-	{
 		return strings;
-	}
 
 	const uint8_t* data = m_image->Data().data();
-	const size_t size = m_image->Data().size();
+	const size_t   size = m_image->Data().size();
 
-	for (size_t i = 0; i < size; ++i)
+	PE::ImageSections image_sections(m_image);
+	auto sections = image_sections.GetAll();
+
+	for (const auto& section : sections)
 	{
-		if (data[i] >= 0x20 && data[i] <= 0x7E)
+		std::string_view name(reinterpret_cast<const char*>(section->Name), 8);
+		auto null_pos = name.find('\0');
+		if (null_pos != std::string_view::npos)
+		{
+			name = name.substr(0, null_pos);
+		}
+
+		if (name == ".text" || name == ".idata" || name == ".reloc")
+		{
+			continue;
+		}
+
+		auto sec_offset = section->PointerToRawData;
+		auto sec_size = section->SizeOfRawData;
+
+		if (sec_offset + sec_size > size)
+		{
+			continue;
+		}
+
+		size_t i = sec_offset;
+		const size_t end = sec_offset + sec_size;
+
+		while (i < end)
 		{
 			const size_t start = i;
-			while (i < size && data[i] >= 0x20 && data[i] <= 0x7E)
+			while (i < end && data[i] >= 0x20 && data[i] <= 0x7E)
+			{
 				++i;
+			}
 
 			const size_t len = i - start;
-			if (len >= min_length)
+			if (len >= min_length && i < end && data[i] == 0x00)
 			{
-				strings.emplace_back(reinterpret_cast<const char*>(data + start), len);
+				strings.emplace_back(
+					reinterpret_cast<const char*>(data + start), len);
 			}
-			--i; // Skip to next byte to avoid false Unicode detection
+
+			++i; // Advance past null byte
 		}
 	}
 
@@ -449,19 +478,43 @@ std::vector<std::wstring_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_le
 	std::vector<std::wstring_view> strings;
 
 	if (!m_image || m_image->Data().empty())
-	{
 		return strings;
-	}
 
 	const uint8_t* data = m_image->Data().data();
-	const size_t size = m_image->Data().size();
+	const size_t   size = m_image->Data().size();
 
-	for (size_t i = 0; i + 1 < size; ++i)
+	PE::ImageSections image_sections(m_image);
+	auto sections = image_sections.GetAll();
+
+	for (const auto& section : sections)
 	{
-		if (data[i] >= 0x20 && data[i] <= 0x7E && data[i + 1] == 0x00)
+		std::string_view name(reinterpret_cast<const char*>(section->Name), 8);
+		auto null_pos = name.find('\0');
+		if (null_pos != std::string_view::npos)
+			name = name.substr(0, null_pos);
+
+		if (name == ".text" || name == ".idata" || name == ".reloc")
+			continue;
+
+		auto sec_offset = section->PointerToRawData;
+		auto sec_size = section->SizeOfRawData;
+
+		if (sec_offset == 0 || sec_size == 0)
+			continue;
+
+		if (sec_offset + sec_size > size)
+			continue;
+
+		size_t i = sec_offset;
+		if (i % 2 != 0) ++i;
+
+		const size_t end = sec_offset + sec_size;
+
+		while (i + 1 < end)
 		{
 			const size_t start = i;
-			while (i + 1 < size &&
+
+			while (i + 1 < end &&
 				data[i] >= 0x20 && data[i] <= 0x7E &&
 				data[i + 1] == 0x00)
 			{
@@ -469,14 +522,17 @@ std::vector<std::wstring_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_le
 			}
 
 			const size_t wchar_count = (i - start) / 2;
-			if (wchar_count >= min_length)
+
+			if (wchar_count >= min_length &&
+				i + 1 < end &&
+				data[i] == 0x00 && data[i + 1] == 0x00)
 			{
 				strings.emplace_back(
 					reinterpret_cast<const wchar_t*>(data + start),
-					wchar_count
-				);
+					wchar_count);
 			}
-			--i;
+
+			i += 2; // Advance past null terminator
 		}
 	}
 
