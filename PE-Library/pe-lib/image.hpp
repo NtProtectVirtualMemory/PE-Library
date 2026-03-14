@@ -111,7 +111,7 @@ namespace PE
 		std::uint32_t VaToRva(std::uint64_t va) const noexcept;
 		std::uint32_t OffsetToRva(std::uint32_t file_offset) const noexcept;
 		std::vector<std::string_view>  GetAsciiStrings(std::uint32_t min_length) const noexcept;
-		std::vector<std::wstring_view> GetUnicodeStrings(std::uint32_t min_length) const noexcept;
+		std::vector<std::string_view> GetUnicodeStrings(std::uint32_t min_length) const noexcept;
 
 	private:
 		Image* m_image;
