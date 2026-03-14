@@ -35,7 +35,7 @@ namespace PE
 		[[nodiscard]] __forceinline constexpr bool  IsValid() const noexcept(true) { return m_valid; }
 		__forceinline constexpr bool IsPE32()		const noexcept(true) { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
 		__forceinline constexpr bool IsPE64()		const noexcept(true) { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
-		const std::vector<std::uint8_t>&  Data()	const noexcept(true) { return m_data; }
+		const std::vector<std::uint8_t>& Data()	const noexcept(true) { return m_data; }
 
 		/*
 		* @brief Retrieves the DOS header of the image.

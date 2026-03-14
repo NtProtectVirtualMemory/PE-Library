@@ -478,7 +478,9 @@ std::vector<std::string_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_len
 	std::vector<std::string_view> strings;
 
 	if (!m_image || m_image->Data().empty())
+	{
 		return strings;
+	}
 
 	const uint8_t* data = m_image->Data().data();
 	const size_t   size = m_image->Data().size();
@@ -494,9 +496,7 @@ std::vector<std::string_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_len
 			name = name.substr(0, null_pos);
 
 		if (name == ".text" || name == ".idata" || name == ".reloc")
-		{
 			continue;
-		}
 
 		auto sec_offset = section->PointerToRawData;
 		auto sec_size = section->SizeOfRawData;
@@ -531,10 +531,10 @@ std::vector<std::string_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_len
 			{
 				strings.emplace_back(
 					reinterpret_cast<const char*>(data + start),
-					wchar_count);
+					i - start);
 			}
 
-			i += 2; // Advance past null terminator
+			i += 2;
 		}
 	}
 
