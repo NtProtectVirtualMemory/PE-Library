@@ -31,6 +31,7 @@ namespace PE
 
 		Image(const Image&) = delete;
 		Image& operator=(const Image&) = delete;
+		bool Save(const char* path) const noexcept;
 
 		[[nodiscard]] __forceinline constexpr bool  IsValid() const noexcept(true) { return m_valid; }
 		__forceinline constexpr bool IsPE32()		const noexcept(true) { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }

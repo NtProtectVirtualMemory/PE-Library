@@ -540,3 +540,22 @@ std::vector<std::string_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_len
 
 	return strings;
 }
+
+bool PE::Image::Save(const char* path) const noexcept
+{
+	if (!m_valid || !path || m_data.empty())
+		return false;
+
+	FILE* file = nullptr;
+	fopen_s(&file, path, "wb");
+
+	if (!file)
+	{
+		return false;
+	}
+
+	size_t written = fwrite(m_data.data(), 1, m_data.size(), file);
+	fclose(file);
+
+	return written == m_data.size();
+}
