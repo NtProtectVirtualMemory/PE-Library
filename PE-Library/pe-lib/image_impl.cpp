@@ -191,57 +191,13 @@ bool PE::Image::ValidateImage() noexcept
 	return true;
 }
 
-/*
-bool PE::ImageUtils::StripPDBInfo() const noexcept
-{
-	if (!m_image)
-	{
-		return false;
-	}
-
-	auto cv_data = m_image->Debug().GetByType(IMAGE_DEBUG_TYPE_CODEVIEW);
-	if (cv_data.type == 0 || cv_data.address_offset == 0)
-	{
-		return false;
-	}
-
-	DWORD cv_offset = cv_data.address_offset;
-	if (cv_offset + sizeof(DWORD) > m_image->Data().size())
-	{
-		return false;
-	}
-
-	BYTE* data = const_cast<BYTE*>(m_image->Data().data());
-	DWORD signature = *reinterpret_cast<DWORD*>(data + cv_offset);
-
-	if (signature == IMAGE_RSDS_SIGNATURE)
-	{
-		// Signature 4;
-		// GUID		16;
-		// Age		 4;
-		DWORD pdb_offset = cv_offset + 4 + 16 + 4;
-		if (pdb_offset >= m_image->Data().size())
-		{
-			return false;
-		}
-
-		size_t max_len = m_image->Data().size() - pdb_offset;
-		char* pdb_path = reinterpret_cast<char*>(data + pdb_offset);
-		size_t path_len = strnlen(pdb_path, max_len);
-
-		std::memset(pdb_path, 0, path_len);
-
-		return true;
-	}
-
-	return false;
-}
-*/
-
 bool PE::Utils::PatternScan(const char* pattern, const char* mask, uintptr_t* out) const noexcept
 {
 	size_t str_len = strlen(mask);
 	if (str_len != strlen(pattern))
+		return false;
+
+	if (str_len == 0 || str_len > m_image->Data().size())
 		return false;
 
 	for (size_t i = 0; i < m_image->Data().size() - str_len; ++i)
@@ -249,6 +205,7 @@ bool PE::Utils::PatternScan(const char* pattern, const char* mask, uintptr_t* ou
 		bool found = true;
 		for (size_t j = 0; j < str_len; ++j)
 		{
+			// 'x' means the byte must match, anything else is treated as a wildcard
 			if (mask[j] == 'x' && pattern[j] != m_image->Data()[i + j])
 			{
 				found = false;
@@ -267,6 +224,14 @@ bool PE::Utils::PatternScan(const char* pattern, const char* mask, uintptr_t* ou
 
 	return false;
 }
+
+/*
+	RVA inside a section:
+		offset = PointerToRawData + (RVA - VirtualAddress)
+
+	This works because sections have different
+	locations in memory and in the file.
+*/
 
 std::uint32_t PE::Utils::RvaToOffset(std::uint32_t rva) const noexcept
 {
@@ -330,6 +295,7 @@ std::uint32_t PE::Utils::VaToRva(std::uint64_t va) const noexcept
 	if (!m_image)
 		return 0;
 
+	// ImageBase differs between PE32 and PE64 optional headers, duh
 	std::uint64_t image_base = 0;
 	if (m_image->IsPE64())
 	{

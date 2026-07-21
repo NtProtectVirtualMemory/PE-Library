@@ -146,6 +146,9 @@ std::vector<PE::ImportFunction> PE::Imports::FunctionFromModule(const char* dll_
 			continue;
 		}
 
+		// NOTE:
+		//	Some binaries strip the OriginalFirstThunk table
+		//	In that case the loader uses FirstThunk as the lookup source
 		std::uint32_t thunk_rva = desc->OriginalFirstThunk ? desc->OriginalFirstThunk : desc->FirstThunk;
 		std::uint32_t thunk_offset = Utils(m_image).RvaToOffset(thunk_rva);
 
@@ -611,10 +614,13 @@ std::vector<PE::RelocationBlock> PE::Relocations::GetBlocks() const noexcept
 
 		for (std::uint32_t i = 0; i < entry_count; ++i)
 		{
+			// Each relocation entry packs a 4-bit relocation type and a 12-bit offset
+			// relative to the block's page RVA
 			std::uint16_t entry = entries[i];
 			std::uint16_t type = (entry >> 12) & 0x0F;
 			std::uint16_t offset = entry & 0x0FFF;
 
+			// ABSOLUTE relocations are padding entries used for alignment </3
 			if (type == IMAGE_REL_BASED_ABSOLUTE)
 				continue;
 
@@ -703,7 +709,10 @@ std::string_view PE::Relocations::TypeToString(std::uint16_t type) noexcept
 	}
 }
 
-// Resources
+
+// IMPORTANT:
+//	Resources are stored as a 3-level tree:
+//	Type -> Name/ID -> Language -> ResourceData
 
 PE::Resources::Resources(Image* image) : m_image(image)
 {
@@ -743,6 +752,7 @@ std::vector<PE::ResourceEntry> PE::Resources::GetAll() const noexcept
 
 	constexpr std::uint16_t MAX_RESOURCE_ENTRIES = 4096;
 
+	// Level 1: resource type (ICON, VERSION, MANIFEST, etc.)
 	std::uint16_t total_entries_l1 = root_dir->NumberOfNamedEntries + root_dir->NumberOfIdEntries;
 	if (total_entries_l1 > MAX_RESOURCE_ENTRIES)
 	{
@@ -804,6 +814,7 @@ std::vector<PE::ResourceEntry> PE::Resources::GetAll() const noexcept
 		const ImageResourceDirectory* type_dir =
 			reinterpret_cast<const ImageResourceDirectory*>(resource_base + type_dir_offset);
 
+		// Level 2: resource name or ID
 		std::uint16_t total_entries_l2 = type_dir->NumberOfNamedEntries + type_dir->NumberOfIdEntries;
 		if (total_entries_l2 > MAX_RESOURCE_ENTRIES)
 		{
@@ -865,6 +876,7 @@ std::vector<PE::ResourceEntry> PE::Resources::GetAll() const noexcept
 			const ImageResourceDirectory* name_dir =
 				reinterpret_cast<const ImageResourceDirectory*>(resource_base + name_dir_offset);
 
+			// Level 3: language specific data
 			std::uint16_t total_entries_l3 = name_dir->NumberOfNamedEntries + name_dir->NumberOfIdEntries;
 			if (total_entries_l3 > MAX_RESOURCE_ENTRIES)
 			{
@@ -1058,6 +1070,8 @@ std::optional<PE::VersionInfo> PE::Resources::GetVersionInfo() const noexcept
 
 	const std::uint8_t* version_data = m_image->Data().data() + version_entry.file_offset;
 
+	// VS_FIXEDFILEINFO signature used to locate the fixed version structure
+	// inside VERSIONINFO resources (check next comment for resources)
 	constexpr std::uint32_t vs_ffi_sig = 0xFEEF04BD; // Had to Research this //https://crashpad.chromium.org/doxygen/verrsrc_8h.html#a323849bf0740c974e68b19ae551e1a18
 	const std::uint32_t* search_ptr = reinterpret_cast<const std::uint32_t*>(version_data);
 	const std::uint32_t* search_end = reinterpret_cast<const std::uint32_t*>(version_data + version_entry.data_size - sizeof(std::uint32_t) * 13);

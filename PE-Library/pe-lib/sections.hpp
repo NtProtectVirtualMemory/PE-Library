@@ -5,6 +5,12 @@
 class Image;
 namespace PE
 {
+	/*
+	* @brief Represents the section table of a Portable Executable image.
+	*
+	* Provides access to IMAGE_SECTION_HEADER entries and allows adding
+	* new sections to an existing PE image.
+	*/
 	class ImageSections
 	{
 	private:
@@ -28,11 +34,22 @@ namespace PE
 		const ImageSectionHeader* GetByName(const char* name) const noexcept;
 		const ImageSectionHeader* GetByIndex(size_t index) const noexcept;
 		const std::vector<const ImageSectionHeader*> GetAll() const noexcept;
+
+		/*
+		* @brief Adds a new section to the PE image.
+		*
+		* Updates the section table, section count and image size.
+		*/
 		bool AddSection(
 			const std::string_view& name,
 			const std::vector<uint8_t> content,
 			std::uint32_t characteristics) noexcept;
 
+		/*
+		* @brief Aligns a value to the specified alignment boundary.
+		*
+		* Used for PE FileAlignment and SectionAlignment calculations.
+		*/
 		bool AlignUp(std::uint32_t value, std::uint32_t alignment, std::uint32_t& out) noexcept
 		{
 			if (alignment == 0)

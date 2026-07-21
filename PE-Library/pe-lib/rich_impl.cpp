@@ -1,6 +1,15 @@
 #include "image.hpp"
 #include "rich.hpp"
 
+
+// Layout:
+//   DanS (encoded)
+//   Rich entries (encoded)
+//   Rich signature
+//   XOR checksum
+// 
+// (Note for crim in the future)
+
 bool PE::RichHeader::Present() const noexcept
 {
 	if (!m_image || !m_image->IsValid())
@@ -71,11 +80,15 @@ std::uint32_t PE::RichHeader::GetRawOffset() const noexcept
 		return 0;
 	}
 
+	// The DWORD immediately following the Rich signature stores the XOR key.
+	// All Rich header entries are encoded with this checksum
 	std::uint32_t checksum = *(rich_ptr + 1);
 
 	const std::uint32_t* scan = rich_ptr - 1;
 	while (scan > search_end)
 	{
+		// The Rich header starts with a DanS marker that is XOR encoded using
+		// the same checksum stored after the Rich signature
 		if ((*scan ^ checksum) == DANS_SIGNATURE)
 		{
 			return static_cast<std::uint32_t>(
@@ -228,6 +241,9 @@ std::vector<PE::RichEntry> PE::RichHeader::GetEntries() const noexcept
 	if (!rich_ptr)
 		return entries;
 
+	// Skip the DanS header area.
+	// Entries are stored as pairs of encoded DWORDs:
+	//		[tool/product identifier] [usage count]
 	const std::uint32_t* entry_start = reinterpret_cast<const std::uint32_t*>(data + start_offset + 16);
 	const std::uint32_t* entry_end = rich_ptr;
 
@@ -238,6 +254,8 @@ std::vector<PE::RichEntry> PE::RichHeader::GetEntries() const noexcept
 
 		RichEntry entry{};
 		entry.build_id = static_cast<std::uint16_t>(comp_id & 0xFFFF);
+		// The high 16 bits identify the Microsoft build tool,
+		// the low 16 bits identify the tool version/build
 		entry.product_id = static_cast<std::uint16_t>((comp_id >> 16) & 0xFFFF);
 		entry.use_count = count;
 
@@ -267,6 +285,7 @@ bool PE::RichHeader::ValidateChecksum() const noexcept
 
 	const std::uint8_t* data = m_image->Data().data();
 
+	// Rich checksum starts with the file offset of the Rich header.
 	std::uint32_t calc_checksum = start_offset;
 
 	for (size_t i = 0; i < sizeof(ImageDosHeader); ++i)

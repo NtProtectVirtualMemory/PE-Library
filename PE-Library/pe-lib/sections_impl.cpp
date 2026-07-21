@@ -15,6 +15,9 @@ PE::ImageSections::ImageSections(Image* image) : m_image(image)
 			return;
 
 		m_number_of_sections = nt_headers->FileHeader.NumberOfSections;
+
+		// IMAGE_FIRST_SECTION points directly after the optional header.
+		// This gives us the first IMAGE_SECTION_HEADER entry in the section table.
 		m_sections = reinterpret_cast<const ImageSectionHeader*>(IMAGE_FIRST_SECTION(nt_headers));
 	}
 	else if (m_image->IsPE32())
@@ -48,6 +51,7 @@ bool PE::ImageSections::ValidateSections(const std::vector<std::uint8_t>& data) 
 	if (optional_offset + sizeof(std::uint16_t) > data.size())
 		return false;
 
+	// The first field of IMAGE_OPTIONAL_HEADER tells us whether this is PE32 or PE32 + .
 	std::uint16_t magic = *reinterpret_cast<const std::uint16_t*>(data.data() + optional_offset);
 
 	size_t sections_offset = 0;
@@ -67,6 +71,8 @@ bool PE::ImageSections::ValidateSections(const std::vector<std::uint8_t>& data) 
 	const ImageFileHeader* file_header =
 		reinterpret_cast<const ImageFileHeader*>(data.data() + nt_offset + sizeof(std::uint32_t));
 
+	// A PE can theoretically have more sections... 
+	// But its unlikely you'll encounter this
 	std::uint16_t num_sections = file_header->NumberOfSections;
 	if (num_sections == 0 || num_sections > 96)
 		return false;
@@ -84,6 +90,8 @@ bool PE::ImageSections::ValidateSections(const std::vector<std::uint8_t>& data) 
 
 		if (section.PointerToRawData != 0 && section.SizeOfRawData > 0)
 		{
+			// Make sure that the section's raw data points
+			// inside the loaded buffer
 			size_t end = static_cast<size_t>(section.PointerToRawData) + section.SizeOfRawData;
 			if (end > data.size())
 			{
@@ -117,6 +125,7 @@ const PE::ImageSectionHeader* PE::ImageSections::GetByName(const char* name) con
 {
 	for (size_t i = 0; i < m_number_of_sections; ++i)
 	{
+		// Section names are fixed 8-byte fields and are not guaranteed to be null terminated!!
 		if (_strnicmp(reinterpret_cast<const char*>(m_sections[i].Name), name, IMAGE_SIZEOF_SHORT_NAME) == 0)
 		{
 			return &m_sections[i];
@@ -165,12 +174,18 @@ bool PE::ImageSections::AddSection_T(
 	auto sections = reinterpret_cast<ImageSectionHeader*>(IMAGE_FIRST_SECTION(nt_headers));
 
 	std::uint8_t* section_table = reinterpret_cast<std::uint8_t*>(sections);
+
+	// Where the new section header would end if appended :thinking:
 	std::uint8_t* new_entry_end = section_table
 		+ (static_cast<size_t>(nt_headers->FileHeader.NumberOfSections) + 1) * sizeof(ImageSectionHeader);
 
 	std::uint32_t size_of_headers = nt_headers->OptionalHeader.SizeOfHeaders;
 	std::uint8_t* headers_end = image_base + size_of_headers;
 
+	// NOTE:
+	//	Section headers are found inside SizeOfHeaders
+	//	If there is no room, adding another section requires moving headers
+	//	! THIS IS CURRENTLY NOT SUPPORTED !
 	if (new_entry_end > headers_end)
 		return false;
 
@@ -194,15 +209,19 @@ bool PE::ImageSections::AddSection_T(
 	std::uint32_t raw_ptr, raw_size, virtual_addr;
 	if (!AlignUp(max_raw_end, file_alignment, raw_ptr))
 		return false;
+
+	// Raw section size is stored aligned, even though 
+	// VirtualSize contains the unpadded content size
 	if (!AlignUp(static_cast<std::uint32_t>(content.size()), file_alignment, raw_size))
 		return false;
+
 	if (!AlignUp(max_va_end, section_alignment, virtual_addr))
 		return false;
 
 	new_section.PointerToRawData = raw_ptr;
 	new_section.SizeOfRawData = raw_size;
 	new_section.VirtualAddress = virtual_addr;
-	new_section.Misc.VirtualSize = static_cast<std::uint32_t>(content.size());
+	new_section.Misc.VirtualSize = static_cast<std::uint32_t>(content.size()); // VirtualSize represents the real amount of data, not the padded size
 	new_section.Characteristics = characteristics;
 
 	std::uint64_t new_size = static_cast<std::uint64_t>(new_section.PointerToRawData) + new_section.SizeOfRawData;
@@ -212,6 +231,7 @@ bool PE::ImageSections::AddSection_T(
 	image_data.resize(static_cast<size_t>(new_size));
 	std::memcpy(image_data.data() + new_section.PointerToRawData, content.data(), content.size());
 
+	// Recalculate pointers because resize() may have moved the vector buffer
 	auto new_dos_header = reinterpret_cast<const ImageDosHeader*>(image_data.data());
 	auto new_nt_headers = reinterpret_cast<NtHeaders_T*>(image_data.data() + new_dos_header->e_lfanew);
 	auto new_sections = reinterpret_cast<ImageSectionHeader*>(IMAGE_FIRST_SECTION(new_nt_headers));
@@ -219,6 +239,8 @@ bool PE::ImageSections::AddSection_T(
 	new_sections[new_nt_headers->FileHeader.NumberOfSections] = new_section;
 	new_nt_headers->FileHeader.NumberOfSections++;
 
+	// SizeOfImage is the end of the highest virtual 
+	// section rounded up/down to SectionAlignment.
 	std::uint32_t end_va = new_section.VirtualAddress + new_section.Misc.VirtualSize;
 	std::uint32_t aligned_size_of_image;
 	if (!AlignUp(end_va, section_alignment, aligned_size_of_image))
