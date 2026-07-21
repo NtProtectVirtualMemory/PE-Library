@@ -163,7 +163,6 @@ bool PE::ImageSections::AddSection_T(
 		return false;
 
 	auto sections = reinterpret_cast<ImageSectionHeader*>(IMAGE_FIRST_SECTION(nt_headers));
-	auto last_section = &sections[nt_headers->FileHeader.NumberOfSections - 1];
 
 	std::uint8_t* section_table = reinterpret_cast<std::uint8_t*>(sections);
 	std::uint8_t* new_entry_end = section_table
@@ -182,12 +181,22 @@ bool PE::ImageSections::AddSection_T(
 	std::uint32_t file_alignment = nt_headers->OptionalHeader.FileAlignment;
 	std::uint32_t section_alignment = nt_headers->OptionalHeader.SectionAlignment;
 
+	std::uint32_t max_raw_end = 0;
+	std::uint32_t max_va_end = 0;
+	for (std::uint32_t idx = 0; idx < nt_headers->FileHeader.NumberOfSections; ++idx)
+	{
+		std::uint32_t raw_end = sections[idx].PointerToRawData + sections[idx].SizeOfRawData;
+		std::uint32_t va_end = sections[idx].VirtualAddress + sections[idx].Misc.VirtualSize;
+		max_raw_end = (std::max)(max_raw_end, raw_end);
+		max_va_end = (std::max)(max_va_end, va_end);
+	}
+
 	std::uint32_t raw_ptr, raw_size, virtual_addr;
-	if (!AlignUp(last_section->PointerToRawData + last_section->SizeOfRawData, file_alignment, raw_ptr))
+	if (!AlignUp(max_raw_end, file_alignment, raw_ptr))
 		return false;
 	if (!AlignUp(static_cast<std::uint32_t>(content.size()), file_alignment, raw_size))
 		return false;
-	if (!AlignUp(last_section->VirtualAddress + last_section->Misc.VirtualSize, section_alignment, virtual_addr))
+	if (!AlignUp(max_va_end, section_alignment, virtual_addr))
 		return false;
 
 	new_section.PointerToRawData = raw_ptr;
@@ -209,7 +218,12 @@ bool PE::ImageSections::AddSection_T(
 
 	new_sections[new_nt_headers->FileHeader.NumberOfSections] = new_section;
 	new_nt_headers->FileHeader.NumberOfSections++;
-	new_nt_headers->OptionalHeader.SizeOfImage = new_section.VirtualAddress + new_section.Misc.VirtualSize;
+
+	std::uint32_t end_va = new_section.VirtualAddress + new_section.Misc.VirtualSize;
+	std::uint32_t aligned_size_of_image;
+	if (!AlignUp(end_va, section_alignment, aligned_size_of_image))
+		return false;
+	new_nt_headers->OptionalHeader.SizeOfImage = aligned_size_of_image;
 
 	m_number_of_sections = new_nt_headers->FileHeader.NumberOfSections;
 	m_sections = reinterpret_cast<const ImageSectionHeader*>(new_sections);
