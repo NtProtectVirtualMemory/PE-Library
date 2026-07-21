@@ -3,7 +3,7 @@
 
 #include "pe-lib/image.hpp"
 // #include "pe-lib/rich.hpp"
-// #include "pe-lib/sections.hpp"
+#include "pe-lib/sections.hpp"
 // #include "pe-lib/directories.hpp"
 
 template <typename Rep, typename Period>
@@ -20,6 +20,9 @@ int main(int argc, char* argv[]) {
 		wait(std::chrono::seconds(3));
 		return EXIT_FAILURE;
 	}
+
+	PE::Image image(argv[1]);
+	PE::ImageSections pe_sections(&image);
 
 	// Examples go here :thinking:
 
