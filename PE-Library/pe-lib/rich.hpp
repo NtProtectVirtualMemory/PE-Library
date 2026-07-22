@@ -13,12 +13,12 @@ namespace PE
 	private:
 		Image* m_image;
 
-		[[nodiscard]] bool Present() const noexcept;
 		[[nodiscard]] bool ValidateChecksum() const noexcept;
 
 	public:
 		RichHeader(Image* image) : m_image(image) {}
 
+		[[nodiscard]] bool Present() const noexcept;
 		std::uint32_t GetChecksum() const noexcept;
 		std::uint32_t GetRawOffset() const noexcept;
 		std::vector<RichEntry> GetEntries() const noexcept;

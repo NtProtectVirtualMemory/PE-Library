@@ -138,9 +138,17 @@ std::uint32_t PE::RichHeader::GetRawSize(bool region_size) const noexcept
 		return 0;
 	}
 
-	std::uint32_t checksum = *(rich_ptr + 1);
-
 	const std::uint8_t* rich_byte = reinterpret_cast<const std::uint8_t*>(rich_ptr);
+
+	// The checksum DWORD immediately follows the "Rich" marker; the marker can
+	// legitimately match at the very end of the buffer, so make sure the DWORD
+	// is in-bounds before reading it.
+	if (static_cast<size_t>(rich_byte - data) + 2 * sizeof(std::uint32_t) > image.size())
+	{
+		return 0;
+	}
+
+	std::uint32_t checksum = *(rich_ptr + 1);
 	const std::uint8_t* dans_ptr = nullptr;
 
 	for (size_t off = (rich_byte - data) - 4; off >= 4; --off)

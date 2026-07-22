@@ -15,7 +15,7 @@ namespace PE
 		DataDirectory(Image* image) : m_image(image) {}
 
 		const ImageDataDirectory* Get(std::uint16_t index) const noexcept;
-		bool Exists(std::uint16_t index) const noexcept;
+		bool Present(std::uint16_t index) const noexcept;
 
 		template<typename T>
 		const T* GetDirectory(std::uint16_t index) const noexcept
@@ -118,7 +118,7 @@ namespace PE
 		TLSInfo GetInfo() const noexcept;
 		std::vector<TLSCallback> GetCallbacks() const noexcept;
 		[[nodiscard]] bool HasCallbacks() const noexcept;
-		constexpr size_t CallbackCount() const noexcept { return GetCallbacks().size(); }
+		size_t CallbackCount() const noexcept { return GetCallbacks().size(); }
 
 		template<typename T>
 		inline const T* GetDirectory() const noexcept

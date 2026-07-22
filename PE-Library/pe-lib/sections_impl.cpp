@@ -22,12 +22,17 @@ PE::ImageSections::ImageSections(Image* image) : m_image(image)
 	}
 	else if (m_image->IsPE32())
 	{
-		auto nt_headers = m_image->GetNTHeaders<ImageNtHeaders64>();
+		auto nt_headers = m_image->GetNTHeaders<ImageNtHeaders32>();
 		if (!nt_headers)
 			return;
 
 		m_number_of_sections = nt_headers->FileHeader.NumberOfSections;
 		m_sections = reinterpret_cast<const ImageSectionHeader*>(IMAGE_FIRST_SECTION(nt_headers));
+	}
+	else
+	{
+		m_sections = nullptr;
+		m_number_of_sections = 0;
 	}
 
 	if (ValidateSections(m_image->Data()))

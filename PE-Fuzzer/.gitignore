@@ -1,0 +1,12 @@
+# Native (Linux/macOS) fuzz build output
+build/
+
+# Fuzzer working files
+corpus/
+corpus_*/
+crash-*
+crash_*
+leak-*
+timeout-*
+oom-*
+seed_pe64.bin

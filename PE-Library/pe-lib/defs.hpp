@@ -5,6 +5,25 @@
 #include <windows.h>
 #include <string_view>
 
+#ifndef IMAGE_DEBUG_TYPE_VC_FEATURE
+#define IMAGE_DEBUG_TYPE_VC_FEATURE 12
+#endif
+#ifndef IMAGE_DEBUG_TYPE_POGO
+#define IMAGE_DEBUG_TYPE_POGO 13
+#endif
+#ifndef IMAGE_DEBUG_TYPE_ILTCG
+#define IMAGE_DEBUG_TYPE_ILTCG 14
+#endif
+#ifndef IMAGE_DEBUG_TYPE_MPX
+#define IMAGE_DEBUG_TYPE_MPX 15
+#endif
+#ifndef IMAGE_DEBUG_TYPE_REPRO
+#define IMAGE_DEBUG_TYPE_REPRO 16
+#endif
+#ifndef IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS
+#define IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS 20
+#endif
+
 constexpr std::uint16_t resource_cursor = 1;
 constexpr std::uint16_t resource_bitmap = 2;
 constexpr std::uint16_t resource_icon = 3;

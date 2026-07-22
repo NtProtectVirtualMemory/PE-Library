@@ -13,5 +13,6 @@
     <ClInclude Include="pe-lib\directories.hpp" />
     <ClInclude Include="pe-lib\rich.hpp" />
     <ClInclude Include="pe-lib\defs.hpp" />
+    <ClInclude Include="pe-lib\pe_platform.hpp" />
   </ItemGroup>
 </Project>

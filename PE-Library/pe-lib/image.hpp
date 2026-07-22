@@ -17,7 +17,7 @@ namespace PE
 		std::vector<std::uint8_t> m_data;
 
 		// Main validation
-		[[nodiscard]] bool ValidateImage() noexcept;
+		[[nodiscard]] bool Validate() noexcept;
 
 		// Validation helpers
 		[[nodiscard]] bool ValidateNT()    const noexcept;
@@ -25,7 +25,6 @@ namespace PE
 		[[nodiscard]] bool ValidateOptional() const noexcept;
 
 	public:
-		explicit Image(const char* path);						// from file
 		explicit Image(std::vector<std::uint8_t> data);			// owning move
 		explicit Image(const std::uint8_t* data, size_t size);	// from memory
 
@@ -37,7 +36,6 @@ namespace PE
 		__forceinline constexpr bool IsPE32()		const noexcept(true) { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC; }
 		__forceinline constexpr bool IsPE64()		const noexcept(true) { return m_valid && m_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC; }
 
-		const std::vector<std::uint8_t>& Data()	const noexcept(true) { return m_data; }
 		std::vector<std::uint8_t>& Data() noexcept(true) { return m_data; }
 
 		/*

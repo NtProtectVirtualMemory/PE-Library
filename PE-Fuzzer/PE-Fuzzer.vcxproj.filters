@@ -1,10 +1,13 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="fuzzer.cpp" />
-    <ClCompile Include="..\PE-Library\premier\image_impl.cpp" />
-    <ClCompile Include="..\PE-Library\premier\sections_impl.cpp" />
-    <ClCompile Include="..\PE-Library\premier\rich_impl.cpp" />
-    <ClCompile Include="..\PE-Library\premier\directories_impl.cpp" />
+    <ClCompile Include="..\PE-Library\pe-lib\image_impl.cpp" />
+    <ClCompile Include="..\PE-Library\pe-lib\sections_impl.cpp" />
+    <ClCompile Include="..\PE-Library\pe-lib\rich_impl.cpp" />
+    <ClCompile Include="..\PE-Library\pe-lib\directories_impl.cpp" />
+    <ClCompile Include="targets\fuzz_image.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="targets\common.hpp" />
   </ItemGroup>
 </Project>

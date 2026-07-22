@@ -46,7 +46,7 @@ const PE::ImageDataDirectory* PE::DataDirectory::Get(std::uint16_t index) const 
 	return nullptr;
 }
 
-bool PE::DataDirectory::Exists(std::uint16_t index) const noexcept
+bool PE::DataDirectory::Present(std::uint16_t index) const noexcept
 {
 	auto dir = Get(index);
 	return dir && dir->VirtualAddress != 0 && dir->Size != 0;
@@ -56,7 +56,7 @@ bool PE::DataDirectory::Exists(std::uint16_t index) const noexcept
 
 PE::Imports::Imports(Image* image) : m_image(image)
 {
-	m_present = DataDirectory(m_image).Exists(IMAGE_DIRECTORY_ENTRY_IMPORT);
+	m_present = DataDirectory(m_image).Present(IMAGE_DIRECTORY_ENTRY_IMPORT);
 }
 
 std::vector<std::string_view> PE::Imports::GetImportedModules() const noexcept
@@ -326,7 +326,7 @@ std::vector<PE::ImportEntry> PE::Imports::GetAllImports() const noexcept
 
 PE::Exports::Exports(Image* image) : m_image(image)
 {
-	m_present = DataDirectory(m_image).Exists(IMAGE_DIRECTORY_ENTRY_EXPORT);
+	m_present = DataDirectory(m_image).Present(IMAGE_DIRECTORY_ENTRY_EXPORT);
 }
 
 std::vector<PE::ExportFunction> PE::Exports::All() const noexcept
@@ -538,7 +538,7 @@ PE::ExportFunction PE::Exports::ByOrdinal(std::uint16_t ordinal) const noexcept
 
 PE::Relocations::Relocations(Image* image) : m_image(image)
 {
-	m_present = DataDirectory(m_image).Exists(IMAGE_DIRECTORY_ENTRY_BASERELOC);
+	m_present = DataDirectory(m_image).Present(IMAGE_DIRECTORY_ENTRY_BASERELOC);
 }
 
 std::vector<PE::RelocationBlock> PE::Relocations::GetBlocks() const noexcept
@@ -716,7 +716,7 @@ std::string_view PE::Relocations::TypeToString(std::uint16_t type) noexcept
 
 PE::Resources::Resources(Image* image) : m_image(image)
 {
-	m_present = DataDirectory(m_image).Exists(IMAGE_DIRECTORY_ENTRY_RESOURCE);
+	m_present = DataDirectory(m_image).Present(IMAGE_DIRECTORY_ENTRY_RESOURCE);
 }
 
 std::vector<PE::ResourceEntry> PE::Resources::GetAll() const noexcept
@@ -1154,7 +1154,7 @@ std::string_view PE::Resources::TypeToString(std::uint16_t type_id) noexcept
 
 PE::TLS::TLS(Image* image) : m_image(image)
 {
-	m_present = DataDirectory(m_image).Exists(IMAGE_DIRECTORY_ENTRY_TLS);
+	m_present = DataDirectory(m_image).Present(IMAGE_DIRECTORY_ENTRY_TLS);
 }
 
 const PE::ImageTlsDirectory32* PE::TLS::GetDirectory32() const noexcept
@@ -1342,7 +1342,7 @@ bool PE::TLS::HasCallbacks() const noexcept
 
 PE::Debug::Debug(Image* image) : m_image(image)
 {
-	m_present = DataDirectory(m_image).Exists(IMAGE_DIRECTORY_ENTRY_DEBUG);
+	m_present = DataDirectory(m_image).Present(IMAGE_DIRECTORY_ENTRY_DEBUG);
 }
 
 std::vector<PE::DebugEntry> PE::Debug::GetAll() noexcept

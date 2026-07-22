@@ -1,6 +1,7 @@
+
 # PE-Library API Reference
 
-Every class here (except `Image` itself) is a thin wrapper constructed around an already-loaded `PE::Image*`. The usual flow looks like this:
+Every class here (except `Image` itself) is a thin wrapper constructed around an already-loaded `PE::Image`. The usual flow looks like this:
 
 ```cpp
 PE::Image image("path/to/file.exe");
@@ -16,10 +17,10 @@ PE::ImageSections sections(&image);
 
 ## Contents
 
-- **[Image.md](./Image.md)**, `PE::Image` (loading, validation, header access) and `PE::Utils` (address conversion, pattern scanning, string extraction)
-- **[Imports-Exports.md](./Imports-Exports.md)**, `PE::Imports` and `PE::Exports`
-- **[Relocations-TLS-Resources-Debug.md](./Relocations-TLS-Resources-Debug.md)**, `PE::DataDirectory`, `PE::Relocations`, `PE::TLS`, `PE::Resources`, `PE::Debug`
-- **[Sections-RichHeader.md](./Sections-RichHeader.md)**, `PE::ImageSections` and `PE::RichHeader`
+- **[Image](./Image.md)** -> `PE::Image` (loading, validation, header access) and `PE::Utils` (address conversion, pattern scanning, string extraction)
+- **[Imports-Exports](./Imports-Exports.md)**, -> `PE::Imports` and `PE::Exports`
+- **[Relocations-TLS-Resources-Debug](./Relocations-TLS-Resources-Debug.md)** -> `PE::DataDirectory`, `PE::Relocations`, `PE::TLS`, `PE::Resources`, `PE::Debug`
+- **[Sections-RichHeader](./Sections-RichHeader.md)** -> `PE::ImageSections` and `PE::RichHeader`
 
 ## Conventions used throughout
 
@@ -29,4 +30,4 @@ PE::ImageSections sections(&image);
 
 ## Contributing to these docs
 
-Docs are hand-written to explain when and why to use something, not just parameter types. If a method's behavior around edge cases (empty results, ordinal-only imports, forwarded exports, etc.) isn't covered here, please open an issue or a pull request.
+If a method's behavior around edge cases (empty results, ordinal-only imports, forwarded exports, etc.) isn't covered here, please open an issue or a pull request.

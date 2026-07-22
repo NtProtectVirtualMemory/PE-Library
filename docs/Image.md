@@ -10,23 +10,6 @@ Represents a loaded Portable Executable image and owns its raw bytes. Every othe
 
 ### Constructors
 
-#### `explicit Image(const char* path)`
-
-Loads a PE file from disk into memory.
-
-**Parameters:**
-
-- `path` - path to the file on disk.
-
-**Example:**
-
-```cpp
-PE::Image image("path\\to\\file.exe");
-if (!image.IsValid()) {
-    // Failed to read the file, or its not a valid PE
-}
-```
-
 #### `explicit Image(std::vector<std::uint8_t> data)`
 
 Constructs an image from an existing byte buffer, taking ownership of it (moved in, not copied).

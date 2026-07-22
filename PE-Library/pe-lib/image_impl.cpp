@@ -1,43 +1,23 @@
 #include "image.hpp"
 #include "sections.hpp"
 
-PE::Image::Image(const char* path)
+PE::Image::Image(std::vector<uint8_t> data)
+	: m_data(std::move(data))
 {
-	FILE* file = nullptr;
-	fopen_s(&file, path, "rb");
-
-	if (!file)
-	{
-		return;
-	}
-
-	fseek(file, 0, SEEK_END);
-	size_t file_size = ftell(file);
-	fseek(file, 0, SEEK_SET);
-
-	m_data.resize(file_size);
-	fread(m_data.data(), 1, file_size, file);
-	fclose(file);
-
-	if (ValidateImage())
-	{
-		m_valid = true;
-	}
-}
-
-PE::Image::Image(const std::vector<uint8_t> data)
-	: m_data(data)
-{
-	if (ValidateImage())
+	if (Validate())
 	{
 		m_valid = true;
 	}
 }
 
 PE::Image::Image(const std::uint8_t* data, size_t size)
-	: m_data(data, data + size)
 {
-	if (ValidateImage())
+	if (data && size > 0)
+	{
+		m_data.assign(data, data + size);
+	}
+
+	if (Validate())
 	{
 		m_valid = true;
 	}
@@ -156,7 +136,7 @@ bool PE::Image::ValidateOptional() const noexcept
 	return true;
 }
 
-bool PE::Image::ValidateImage() noexcept
+bool PE::Image::Validate() noexcept
 {
 	if (m_data.empty())
 	{
@@ -505,23 +485,4 @@ std::vector<std::string_view> PE::Utils::GetUnicodeStrings(std::uint32_t min_len
 	}
 
 	return strings;
-}
-
-bool PE::Image::Save(const char* path) const noexcept
-{
-	if (!m_valid || !path || m_data.empty())
-		return false;
-
-	FILE* file = nullptr;
-	fopen_s(&file, path, "wb");
-
-	if (!file)
-	{
-		return false;
-	}
-
-	size_t written = fwrite(m_data.data(), 1, m_data.size(), file);
-	fclose(file);
-
-	return written == m_data.size();
 }
