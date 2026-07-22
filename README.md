@@ -2,6 +2,7 @@
 # PE Library
 
 A modern C++ library for parsing and manipulating Windows Portable Executable (PE) files.
+Full API docs: [`docs/`](docs/README.md)
 
 ## Overview
 
