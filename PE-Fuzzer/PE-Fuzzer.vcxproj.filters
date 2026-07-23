@@ -5,7 +5,6 @@
     <ClCompile Include="..\PE-Library\pe-lib\sections_impl.cpp" />
     <ClCompile Include="..\PE-Library\pe-lib\rich_impl.cpp" />
     <ClCompile Include="..\PE-Library\pe-lib\directories_impl.cpp" />
-    <ClCompile Include="targets\fuzz_sections.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targets\common.hpp" />

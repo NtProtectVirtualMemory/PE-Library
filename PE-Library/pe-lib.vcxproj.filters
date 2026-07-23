@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\directories_impl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\image_impl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\rich_impl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\sections_impl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\defs.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\directories.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\image.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\pe_platform.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\rich.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\pe-lib\sections.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\crim\Desktop\Work\repo\PE-Library\PE-Library\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{B32B38D9-0652-3354-B8A6-3E20421579DD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{86417DB1-E6D7-32EF-BBBA-85A126181424}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

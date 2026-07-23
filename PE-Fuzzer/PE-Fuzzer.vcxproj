@@ -181,7 +181,6 @@
     <ClCompile Include="..\PE-Library\pe-lib\image_impl.cpp" />
     <ClCompile Include="..\PE-Library\pe-lib\rich_impl.cpp" />
     <ClCompile Include="..\PE-Library\pe-lib\sections_impl.cpp" />
-    <ClCompile Include="targets\fuzz_sections.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PE-Library\PE-Library.vcxproj">

@@ -35,6 +35,34 @@ This Library provides a clean interface for working with Windows PE file formats
 - Windows SDK 10.0
 - Platform Toolset v143 or later
 
+## Installation (CMake)
+
+The library can be added directly to your project using CMake's `FetchContent`
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(
+    pe_lib
+    GIT_REPOSITORY https://github.com/NtProtectVirtualMemory/PE-Library.git
+    GIT_TAG master # or whichever commit your prefer
+    SOURCE_SUBDIR PE-Library
+)
+
+FetchContent_MakeAvailable(pe_lib)
+
+target_link_libraries(your_target PRIVATE PE::Library)
+```
+
+After linking, the public headers are automatically available:
+
+```cpp
+#include <image.hpp>
+#include <sections.hpp>
+#include <directories.hpp>
+#include <rich.hpp>
+```
+
 ### Basic Usage
 
 ```cpp
