@@ -1,7 +1,6 @@
 #include "image.hpp"
 #include "rich.hpp"
 
-
 // Layout:
 //   DanS (encoded)
 //   Rich entries (encoded)
@@ -10,24 +9,31 @@
 // 
 // (Note for crim in the future)
 
+static bool ShouldRead(const PE::Image* image) noexcept
+{
+	if (!image)
+		return false;
+
+	if (HasIssue(image->GetValidationIssues(), ValidationIssue::ELfanewOOB))
+		return false; // nt_offset unusable
+
+	return true;
+}
+
 bool PE::RichHeader::Present() const noexcept
 {
-	if (!m_image || !m_image->IsValid())
+	if (!ShouldRead(m_image))
 		return false;
 
 	auto dos_header = m_image->GetDOSHeader();
 	if (!dos_header)
-	{
 		return false;
-	}
 
 	const std::uint8_t* data = m_image->Data().data();
 	size_t nt_offset = dos_header->e_lfanew;
 
 	if (nt_offset < sizeof(ImageDosHeader) + 8)
-	{
 		return false;
-	}
 
 	const std::uint32_t* search = reinterpret_cast<const std::uint32_t*>(data + nt_offset - sizeof(std::uint32_t));
 	const std::uint32_t* search_end = reinterpret_cast<const std::uint32_t*>(data + sizeof(ImageDosHeader));
@@ -45,15 +51,11 @@ bool PE::RichHeader::Present() const noexcept
 std::uint32_t PE::RichHeader::GetRawOffset() const noexcept
 {
 	if (!Present())
-	{
 		return 0;
-	}
 
 	auto dos_header = m_image->GetDOSHeader();
 	if (!dos_header)
-	{
 		return 0;
-	}
 
 	const std::uint8_t* data = m_image->Data().data();
 	size_t nt_offset = dos_header->e_lfanew;
@@ -76,19 +78,13 @@ std::uint32_t PE::RichHeader::GetRawOffset() const noexcept
 	}
 
 	if (!rich_ptr)
-	{
 		return 0;
-	}
 
-	// The DWORD immediately following the Rich signature stores the XOR key.
-	// All Rich header entries are encoded with this checksum
 	std::uint32_t checksum = *(rich_ptr + 1);
 
 	const std::uint32_t* scan = rich_ptr - 1;
 	while (scan > search_end)
 	{
-		// The Rich header starts with a DanS marker that is XOR encoded using
-		// the same checksum stored after the Rich signature
 		if ((*scan ^ checksum) == DANS_SIGNATURE)
 		{
 			return static_cast<std::uint32_t>(
@@ -102,20 +98,19 @@ std::uint32_t PE::RichHeader::GetRawOffset() const noexcept
 
 std::uint32_t PE::RichHeader::GetRawSize(bool region_size) const noexcept
 {
+	if (!ShouldRead(m_image))
+		return 0;
+
 	auto dos_header = m_image->GetDOSHeader();
 	if (!dos_header)
-	{
 		return 0;
-	}
 
 	const std::vector<std::uint8_t>& image = m_image->Data();
 	const std::uint8_t* data = image.data();
 
 	size_t nt_offset = dos_header->e_lfanew;
 	if (nt_offset < sizeof(ImageDosHeader) || nt_offset > image.size())
-	{
 		return 0;
-	}
 
 	const std::uint32_t* search =
 		reinterpret_cast<const std::uint32_t*>(data + nt_offset - sizeof(std::uint32_t));
@@ -134,24 +129,23 @@ std::uint32_t PE::RichHeader::GetRawSize(bool region_size) const noexcept
 	}
 
 	if (!rich_ptr)
-	{
 		return 0;
-	}
 
 	const std::uint8_t* rich_byte = reinterpret_cast<const std::uint8_t*>(rich_ptr);
+	size_t rich_offset = static_cast<size_t>(rich_byte - data);
 
-	// The checksum DWORD immediately follows the "Rich" marker; the marker can
-	// legitimately match at the very end of the buffer, so make sure the DWORD
-	// is in-bounds before reading it.
-	if (static_cast<size_t>(rich_byte - data) + 2 * sizeof(std::uint32_t) > image.size())
-	{
+	if (rich_offset + 2 * sizeof(std::uint32_t) > image.size())
 		return 0;
-	}
+
+	// FIX: rich_offset - 4 can underflow if the Rich signature sits
+	// too close to the start of the buffer.
+	if (rich_offset < 8)
+		return 0;
 
 	std::uint32_t checksum = *(rich_ptr + 1);
 	const std::uint8_t* dans_ptr = nullptr;
 
-	for (size_t off = (rich_byte - data) - 4; off >= 4; --off)
+	for (size_t off = rich_offset - 4; off >= 4; --off)
 	{
 		std::uint32_t v;
 		memcpy(&v, data + off - 4, sizeof(std::uint32_t));
@@ -165,27 +159,20 @@ std::uint32_t PE::RichHeader::GetRawSize(bool region_size) const noexcept
 	}
 
 	if (!dans_ptr)
-	{
 		return 0;
-	}
 
 	std::uint32_t dans_offset = static_cast<std::uint32_t>(dans_ptr - data);
-
-	std::uint32_t rich_size =
-		static_cast<std::uint32_t>((rich_byte + 8) - dans_ptr);
+	std::uint32_t rich_size = static_cast<std::uint32_t>((rich_byte + 8) - dans_ptr);
 
 	if (!region_size)
-	{
 		return rich_size;
-	}
 
 	return static_cast<std::uint32_t>(nt_offset) - dans_offset;
 }
 
-
 std::uint32_t PE::RichHeader::GetChecksum() const noexcept
 {
-	if (!m_image || !m_image->IsValid())
+	if (!ShouldRead(m_image))
 		return 0;
 
 	auto dos_header = m_image->GetDOSHeader();
@@ -201,9 +188,7 @@ std::uint32_t PE::RichHeader::GetChecksum() const noexcept
 	while (search > search_end)
 	{
 		if (*search == RICH_SIGNATURE)
-		{
 			return *(search + 1);
-		}
 		search--;
 	}
 

@@ -23,7 +23,7 @@ PE::Image::Image(const std::uint8_t* data, size_t size)
 	}
 }
 
-bool PE::Image::ValidateDOS() const noexcept
+bool PE::Image::ValidateDOS() noexcept
 {
 	if (m_data.size() < sizeof(ImageDosHeader))
 	{
@@ -38,28 +38,20 @@ bool PE::Image::ValidateDOS() const noexcept
 
 	if (dos_header->e_magic != IMAGE_DOS_SIGNATURE)
 	{
-		return false;
+		m_issues |= ValidationIssue::BadDOSSignature;
 	}
 
-	if (dos_header->e_lfanew < static_cast<std::uint32_t>(sizeof(ImageDosHeader)))
+	if (dos_header->e_lfanew < static_cast<std::uint32_t>(sizeof(ImageDosHeader)) ||
+		static_cast<size_t>(dos_header->e_lfanew) + sizeof(std::uint32_t) > m_data.size())
 	{
-		return false;
-	}
-
-	if (dos_header->e_lfanew >= static_cast<std::uint32_t>(m_data.size()))
-	{
-		return false;
-	}
-
-	if (static_cast<size_t>(dos_header->e_lfanew) + sizeof(std::uint32_t) > m_data.size())
-	{
-		return false;
+		m_issues |= ValidationIssue::ELfanewOOB;
+		return false; // hard stop: nt_offset unusable
 	}
 
 	return true;
 }
 
-bool PE::Image::ValidateNT() const noexcept
+bool PE::Image::ValidateNT() noexcept
 {
 	auto dos_header = GetDOSHeader();
 	if (!dos_header)
@@ -71,13 +63,14 @@ bool PE::Image::ValidateNT() const noexcept
 
 	if (nt_offset + sizeof(std::uint32_t) + sizeof(ImageFileHeader) > m_data.size())
 	{
-		return false;
+		m_issues |= ValidationIssue::BadNTSignature;
+		return false; // hard stop: can't read file_header at all, nothing further is possible
 	}
 
 	auto signature = *reinterpret_cast<const std::uint32_t*>(m_data.data() + nt_offset);
 	if (signature != IMAGE_NT_SIGNATURE)
 	{
-		return false;
+		m_issues |= ValidationIssue::BadNTSignature;
 	}
 
 	const ImageFileHeader* file_header =
@@ -85,30 +78,45 @@ bool PE::Image::ValidateNT() const noexcept
 
 	if (file_header->NumberOfSections == 0 || file_header->NumberOfSections > 96)
 	{
-		return false;
+		m_issues |= ValidationIssue::BadSectionCount;
 	}
 
 	if (file_header->SizeOfOptionalHeader != sizeof(ImageOptionalHeader32) &&
 		file_header->SizeOfOptionalHeader != sizeof(ImageOptionalHeader64))
 	{
-		return false;
+		m_issues |= ValidationIssue::BadOptionalHeaderSize;
 	}
 
-	if (nt_offset + sizeof(std::uint32_t) + sizeof(ImageFileHeader) + file_header->SizeOfOptionalHeader > m_data.size())
+	const size_t sections_offset =
+		nt_offset +
+		sizeof(std::uint32_t) +
+		sizeof(ImageFileHeader) +
+		file_header->SizeOfOptionalHeader;
+
+	if (sections_offset > m_data.size())
 	{
-		return false;
+		m_issues |= ValidationIssue::SectionTableOOB;
+		return true;
+	}
+
+	const size_t section_table_size =
+		static_cast<size_t>(file_header->NumberOfSections) *
+		sizeof(ImageSectionHeader);
+
+	if (section_table_size > m_data.size() - sections_offset)
+	{
+		m_issues |= ValidationIssue::SectionTableOOB;
 	}
 
 	return true;
 }
 
-
-bool PE::Image::ValidateOptional() const noexcept
+bool PE::Image::ValidateOptional() noexcept
 {
 	auto dos_header = GetDOSHeader();
 	if (!dos_header)
 	{
-		return false;
+		return false; // hard stop: shouldn't happen here, just in case
 	}
 
 	size_t nt_offset = dos_header->e_lfanew;
@@ -116,13 +124,15 @@ bool PE::Image::ValidateOptional() const noexcept
 
 	if (optional_offset + sizeof(std::uint16_t) > m_data.size())
 	{
-		return false;
+		m_issues |= ValidationIssue::BadOptionalMagic;
+		return true; // can't read magic
 	}
 
 	std::uint16_t magic = *reinterpret_cast<const std::uint16_t*>(m_data.data() + optional_offset);
 	if (magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC && magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
 	{
-		return false;
+		m_issues |= ValidationIssue::BadOptionalMagic;
+		return true; // invalid magic
 	}
 
 	size_t optional_header_size = (magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) ?
@@ -130,7 +140,7 @@ bool PE::Image::ValidateOptional() const noexcept
 
 	if (optional_offset + optional_header_size > m_data.size())
 	{
-		return false;
+		m_issues |= ValidationIssue::OptionalHeaderOOB;
 	}
 
 	return true;
@@ -170,7 +180,6 @@ bool PE::Image::Validate() noexcept
 
 	return true;
 }
-
 bool PE::Utils::PatternScan(const char* pattern, const char* mask, uintptr_t* out) const noexcept
 {
 	size_t str_len = strlen(mask);
@@ -180,7 +189,7 @@ bool PE::Utils::PatternScan(const char* pattern, const char* mask, uintptr_t* ou
 	if (str_len == 0 || str_len > m_image->Data().size())
 		return false;
 
-	for (size_t i = 0; i < m_image->Data().size() - str_len; ++i)
+	for (size_t i = 0; i <= m_image->Data().size() - str_len; ++i)
 	{
 		bool found = true;
 		for (size_t j = 0; j < str_len; ++j)
@@ -218,6 +227,11 @@ std::uint32_t PE::Utils::RvaToOffset(std::uint32_t rva) const noexcept
 	if (!m_image)
 		return 0;
 
+	if (HasIssue(m_image->GetValidationIssues(), ValidationIssue::ELfanewOOB))
+	{
+		return 0;
+	}
+
 	auto dos_header = m_image->GetDOSHeader();
 	if (!dos_header)
 	{
@@ -238,6 +252,7 @@ std::uint32_t PE::Utils::RvaToOffset(std::uint32_t rva) const noexcept
 		reinterpret_cast<const ImageFileHeader*>(m_image->Data().data() + nt_offset + sizeof(std::uint32_t));
 
 	size_t sections_offset = 0;
+	std::uint16_t num_sections = file_header->NumberOfSections;
 	if (magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
 	{
 		sections_offset = nt_offset + sizeof(ImageNtHeaders64);
@@ -251,19 +266,44 @@ std::uint32_t PE::Utils::RvaToOffset(std::uint32_t rva) const noexcept
 		return 0;
 	}
 
+	const size_t section_table_size =
+		static_cast<size_t>(num_sections) *
+		sizeof(ImageSectionHeader);
+
+	if (sections_offset > m_image->Data().size() ||
+		section_table_size > m_image->Data().size() - sections_offset)
+	{
+		return 0;
+	}
+
 	const ImageSectionHeader* sections =
 		reinterpret_cast<const ImageSectionHeader*>(m_image->Data().data() + sections_offset);
-
-	std::uint16_t num_sections = file_header->NumberOfSections;
 
 	for (std::uint16_t i = 0; i < num_sections; ++i)
 	{
 		std::uint32_t section_start = sections[i].VirtualAddress;
-		std::uint32_t section_end = section_start + sections[i].Misc.VirtualSize;
+
+		uint64_t section_end =
+			static_cast<uint64_t>(section_start) +
+			sections[i].Misc.VirtualSize;
+
+		if (section_end > UINT32_MAX)
+		{
+			continue;
+		}
 
 		if (rva >= section_start && rva < section_end)
 		{
-			return sections[i].PointerToRawData + (rva - section_start);
+			uint64_t file_offset =
+				static_cast<uint64_t>(sections[i].PointerToRawData) +
+				(rva - section_start);
+
+			if (file_offset >= m_image->Data().size())
+			{
+				return 0;
+			}
+
+			return static_cast<uint32_t>(file_offset);
 		}
 	}
 
@@ -309,6 +349,11 @@ std::uint32_t PE::Utils::OffsetToRva(std::uint32_t file_offset) const noexcept
 		return 0;
 	}
 
+	if (HasIssue(m_image->GetValidationIssues(), ValidationIssue::ELfanewOOB))
+	{
+		return 0;
+	}
+
 	auto dos_header = m_image->GetDOSHeader();
 	if (!dos_header)
 		return 0;
@@ -327,6 +372,7 @@ std::uint32_t PE::Utils::OffsetToRva(std::uint32_t file_offset) const noexcept
 		reinterpret_cast<const ImageFileHeader*>(m_image->Data().data() + nt_offset + sizeof(std::uint32_t));
 
 	size_t sections_offset = 0;
+	std::uint16_t num_sections = file_header->NumberOfSections;
 	if (magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
 	{
 		sections_offset = nt_offset + sizeof(ImageNtHeaders64);
@@ -340,15 +386,30 @@ std::uint32_t PE::Utils::OffsetToRva(std::uint32_t file_offset) const noexcept
 		return 0;
 	}
 
+	const size_t section_table_size =
+		static_cast<size_t>(num_sections) *
+		sizeof(ImageSectionHeader);
+
+	if (sections_offset > m_image->Data().size() ||
+		section_table_size > m_image->Data().size() - sections_offset)
+	{
+		return 0;
+	}
+
 	const ImageSectionHeader* sections =
 		reinterpret_cast<const ImageSectionHeader*>(m_image->Data().data() + sections_offset);
-
-	std::uint16_t num_sections = file_header->NumberOfSections;
 
 	for (std::uint16_t i = 0; i < num_sections; ++i)
 	{
 		std::uint32_t section_raw_start = sections[i].PointerToRawData;
-		std::uint32_t section_raw_end = section_raw_start + sections[i].SizeOfRawData;
+		uint64_t section_raw_end =
+			static_cast<uint64_t>(section_raw_start) +
+			sections[i].SizeOfRawData;
+
+		if (section_raw_end > UINT32_MAX)
+		{
+			continue;
+		}
 
 		if (file_offset >= section_raw_start && file_offset < section_raw_end)
 		{

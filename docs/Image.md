@@ -51,13 +51,62 @@ PE::Image image(buffer, buffer_size);
 
 #### `bool IsValid() const`
 
-Returns whether the image passed DOS/NT/optional-header validation. **Always check this before calling anything else!**
+Returns whether the image passed DOS/NT/optional-header validation.
 
 ```cpp
-PE::Image image("trash.bin");
+PE::Image image(bytes);
+
 if (!image.IsValid()) {
-    std::cerr << "not a valid PE file\n";
-    return;
+    std::cerr << "Image contains validation errors.\n";
+}
+```
+### Note:
+An invalid image may still expose any headers that could be safely recovered. `IsValid()` tells you whether any validation errors were detected or not.
+
+
+#### `ValidationIssue GetValidationIssues() const`
+
+Returns a bitmask describing every validation issue encountered while parsing the image.
+
+**Returns:**
+
+- `ValidationIssue::None` if no validation errors were found.
+- One or more `ValidationIssue` flags otherwise.
+
+```cpp
+auto issues = image.GetValidationIssues();
+
+if (HasIssue(issues, PE::ValidationIssue::BadDOSSignature))
+    std::puts("Invalid DOS header.");
+
+if (HasIssue(issues, PE::ValidationIssue::SectionTableOOB))
+    std::puts("Section table extends past the end of the file.");
+```
+
+#### `enum class ValidationIssue`
+
+Represents recoverable validation errors detected while parsing an image.
+
+| Flag | Description |
+|------|-------------|
+| `None` | No validation issues. |
+| `BadDOSSignature` | DOS header signature is invalid (`MZ` missing). |
+| `ELfanewOOB` | `e_lfanew` points outside the image. |
+| `BadNTSignature` | NT header signature is invalid (`PE\0\0` missing). |
+| `BadSectionCount` | The section count is invalid or unreasonable. |
+| `BadOptionalHeaderSize` | The optional header size is inconsistent. |
+| `OptionalHeaderOOB` | The optional header extends beyond the image. |
+| `SectionTableOOB` | The section table extends beyond the image. |
+| `BadOptionalMagic` | The optional header magic is neither PE32 nor PE32+. |
+
+#### `bool HasIssue(ValidationIssue mask, ValidationIssue bit)`
+
+Convenience helper for testing whether a specific validation flag is present.
+
+```cpp
+if (HasIssue(issues, PE::ValidationIssue::SectionTableOOB))
+{
+    std::puts("Section table extends past the end of the file.");
 }
 ```
 

@@ -8,21 +8,12 @@ const PE::ImageDataDirectory* PE::DataDirectory::Get(std::uint16_t index) const 
 		return nullptr;
 	}
 
-	auto dos_header = m_image->GetDOSHeader();
-	if (!dos_header)
+	if (HasIssue(m_image->GetValidationIssues(), ValidationIssue::ELfanewOOB))
 	{
 		return nullptr;
 	}
 
-	size_t nt_offset = dos_header->e_lfanew;
-	size_t optional_offset = nt_offset + sizeof(std::uint32_t) + sizeof(ImageFileHeader);
-
-	if (optional_offset + sizeof(std::uint16_t) > m_image->Data().size())
-		return nullptr;
-
-	std::uint16_t magic = *reinterpret_cast<const std::uint16_t*>(m_image->Data().data() + optional_offset);
-
-	if (magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+	if (m_image->IsPE64())
 	{
 		auto optional = m_image->GetOptionalHeader<ImageOptionalHeader64>();
 		if (!optional || index >= optional->NumberOfRvaAndSizes)
@@ -32,7 +23,7 @@ const PE::ImageDataDirectory* PE::DataDirectory::Get(std::uint16_t index) const 
 
 		return &optional->DataDirectory[index];
 	}
-	else if (magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+	else if (m_image->IsPE32())
 	{
 		auto optional = m_image->GetOptionalHeader<ImageOptionalHeader32>();
 		if (!optional || index >= optional->NumberOfRvaAndSizes)
@@ -1251,13 +1242,11 @@ std::vector<PE::TLSCallback> PE::TLS::GetCallbacks() const noexcept
 	{
 		const std::uint64_t* callback_array = reinterpret_cast<const std::uint64_t*>(data + callbacks_offset);
 
-		while (callbacks_offset < data_size)
+		while (callbacks_offset + sizeof(std::uint64_t) <= data_size)
 		{
 			std::uint64_t callback_va = *callback_array;
 			if (callback_va == 0)
-			{
 				break;
-			}
 
 			TLSCallback cb{};
 			cb.va = callback_va;
@@ -1273,7 +1262,7 @@ std::vector<PE::TLSCallback> PE::TLS::GetCallbacks() const noexcept
 	{
 		const std::uint32_t* callback_array = reinterpret_cast<const std::uint32_t*>(data + callbacks_offset);
 
-		while (callbacks_offset < data_size)
+		while (callbacks_offset + sizeof(std::uint32_t) <= data_size)
 		{
 			std::uint32_t callback_va = *callback_array;
 			if (callback_va == 0)

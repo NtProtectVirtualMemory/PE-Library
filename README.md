@@ -1,25 +1,33 @@
 
 # PE Library
 A modern C++ library for parsing and manipulating Windows Portable Executable (PE) files.
+
 Full API docs can be found [here](docs/README.md).
 
 ## Overview
 This Library provides a clean interface for working with Windows PE file formats. The library is designed to handle DOS headers, NT headers, Sections, Data directories and more with a focus on simplicity and performance.
 
 ## Features
-The Following Features this Library currently offers will be listed below 
-```
-- Full PE32 and PE32+ (x86 / x64) parsing support
-- DOS header, NT headers, optional headers, and section table access
-- Import and export table enumeration (by name and ordinal)
-- Relocation table parsing with block and entry detail
-- TLS directory inspection and callback enumeration
-- Resource tree parsing with version info and manifest extraction
-- Rich header parsing with checksum validation and tool identification
-- RVA, VA, and file offset conversion utilities
-- Debug directory parsing
-- Unicode and ASCII String extraction
-```
+
+### Core
+- **Full PE32 & PE32+ (x86/x64)** support with validation
+- Complete **DOS Header**, **NT Headers**, **Optional Header**, and **Section Table** access
+- Section addition and modification
+- RVA ↔ File Offset ↔ VA conversion utilities
+
+### Directories & Structures
+- **Import Table** – enumeration by name and ordinal
+- **Export Table** – function listing with ordinals and forwarders
+- **Relocations** – full block and entry parsing
+- **TLS Directory** – callbacks and data inspection
+- **Resources** – tree traversal, version info, manifest, and icon extraction
+- **Rich Header** – parsing, checksum validation, and compiler/linker identification
+- **Debug Directory** – support for common debug formats
+
+### Additional Capabilities
+- Unicode and ANSI string extraction
+- Data directory validation and bounds checking
+- Pattern Scanning
 
 ## Getting Started
 ### Prerequisites
@@ -52,21 +60,21 @@ int main()
 
 > **Note:** `PE::Image` no longer performs file I/O. Load the file into memory, then construct the image from the resulting byte buffer.
 ## PE Fuzzer
-The fuzzer has already processed **~200,000** different PE samples and helped discover & fix multiple parsing edge-cases, buffer issues and potential crashes as well as slow units.
+The fuzzer has already processed **~275,000** different PE samples and helped discover & fix multiple parsing edge-cases, buffer issues and potential crashes as well as slow units.
 
 For more information see: [`PE-Fuzzer/`](PE-Fuzzer/README.md)
 
 ### Current State
-- **~200k** unique samples processed.
-- All discovered crashes & undefined behavior issues have been fixed.
+- All discovered crashes, UB and slow units have been fixed.
 - Actively used during development & testing
 
 ## Contributing
 What we **accept**:
 - Bug reports & crash reproducers (especially with ASAN logs) 
-- Parser robustness improvements / edge-case handling 
-- Performance optimizations - Better documentation / code comments 
-- Fuzzer corpus samples, dictionary entries, or mutation strategies
+- Parser improvements / edge-case handling 
+- Performance optimizations 
+- Better documentation / code comments 
+- Fuzzer samples, dictionary entries, or mutation strategies
 
 ### How to contribute
 1. If you're fixing a bug or adding a feature, please **open an issue first** (unless it's a very obvious typo/doc fix) 

@@ -20,7 +20,8 @@ namespace PE
 		std::uint16_t m_number_of_sections = 0;
 		const ImageSectionHeader* m_sections = nullptr;
 
-		[[nodiscard]] bool ValidateSections(const std::vector<std::uint8_t>& data) noexcept;
+	     template <typename NtHeaders_T> 
+		 [[nodiscard]] void BuildSections() noexcept;
 
 		template <typename NtHeaders_T>
 		bool AddSection_T(const std::string_view& name, const std::vector<std::uint8_t>& content, std::uint32_t characteristics) noexcept;

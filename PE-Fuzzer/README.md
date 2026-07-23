@@ -68,7 +68,7 @@ single seed corpus of real PEs can seed every target. Give each target its
 own working corpus directory so they evolve independently:
 
 ```
-PE-Fuzzer-imports.exe corpus\imports seeds -jobs=6 -workers=6 -rss_limit_mb=0 -dict=..\pe-fuzzer.dict
+PE-Fuzzer-imports.exe corpus\imports seeds -jobs=6 -workers=6 -rss_limit_mb=0 -dict=pe-fuzzer.dict
 ```
 
 Tip: `-max_len=1048576` (or similar) keeps per-exec cost down, large inputs
@@ -79,7 +79,7 @@ mostly add I/O, not coverage.
 - **Sinks.** Every API result is passed to `fuzz::Consume`/`ConsumeObject`,
   which folds it into `volatile` globals. The Release configuration builds
   with LTCG (`WholeProgramOptimization`), under which a discarded return
-  value lets the optimizer inline the call and delete the parsing work —
+  value lets the optimizer inline the call and delete the parsing work,
   including the out-of-bounds reads ASan exists to catch. The sinks force
   every result (and every byte behind returned `string_view`s/vectors) to be
   genuinely computed and read.
