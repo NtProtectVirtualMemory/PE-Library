@@ -262,7 +262,7 @@ bool PE::ImageSections::AddSection_T(
 	}
 
 	if (raw_ptr + content.size() > image_data.size()) return false;
-	std::memcpy(image_base + raw_ptr, content.data(), content.size());
+	std::memcpy(image_data.data() + raw_ptr, content.data(), content.size());
 
 	// Recalculate pointers because resize() may have moved the buffer
 	auto new_dos_header = reinterpret_cast<const ImageDosHeader*>(image_data.data());
