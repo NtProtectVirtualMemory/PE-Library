@@ -96,24 +96,6 @@ For more information see: [`PE-Fuzzer/`](PE-Fuzzer/README.md)
 - All discovered crashes, UB and slow units have been fixed.
 - Actively used during development & testing
 
-## Contributing
-What we **accept**:
-- Bug reports & crash reproducers (especially with ASAN logs) 
-- Parser improvements / edge-case handling 
-- Performance optimizations 
-- Better documentation / code comments 
-- Fuzzer samples, dictionary entries, or mutation strategies
-
-### How to contribute
-1. If you're fixing a bug or adding a feature, please **open an issue first** (unless it's a very obvious typo/doc fix) 
-2. Fork the repository and create your branch from `master` 
-3. If possible, add or extend tests, this is highly appreciated.
-4. Make sure the code follows the current style: 
-   - Use C++ features when it improves readability/safety 
-   - Keep public API clean & minimal
-   - Use `snake_case` for private members/functions, `PascalCase` for public types
- 5. Make small, focused pull requests with clear titles & description
-
 ## Special Thanks
 Special thanks to [Christopher Wellons (skeeto)](https://github.com/skeeto) for the Fuzzer, design suggestions, and overall feedback that helped improve the library and fuzzer.
 
